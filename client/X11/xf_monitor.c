@@ -133,8 +133,9 @@ BOOL xf_detect_monitors(xfContext* xfc, UINT32* pMaxWidth, UINT32* pMaxHeight)
 {
 	int i;
 	int nmonitors = 0;
+	int primaryMonitorFound = FALSE;
 	int monitor_index = 0;
-	BOOL primaryMonitorFound = FALSE;
+	int vX, vY, vWidth, vHeight;
 	VIRTUAL_SCREEN* vscreen;
 	rdpSettings* settings = xfc->context.settings;
 	int mouse_x, mouse_y, _dummy_i;
@@ -334,13 +335,12 @@ BOOL xf_detect_monitors(xfContext* xfc, UINT32* pMaxWidth, UINT32* pMaxHeight)
 	if (settings->MonitorCount)
 	{
 		/* Initialize bounding rectangle for all monitors */
-		int vX = settings->MonitorDefArray[0].x;
-		int vY = settings->MonitorDefArray[0].y;
-		int vR = vX + settings->MonitorDefArray[0].width;
-		int vB = vY + settings->MonitorDefArray[0].height;
+		vWidth = settings->MonitorDefArray[0].width;
+		vHeight = settings->MonitorDefArray[0].height;
+		vX = settings->MonitorDefArray[0].x;
+		vY = settings->MonitorDefArray[0].y;
 		xfc->fullscreenMonitors.top = xfc->fullscreenMonitors.bottom =
-		                                  xfc->fullscreenMonitors.left = xfc->fullscreenMonitors.right =
-		                                          settings->MonitorDefArray[0].orig_screen;
+		xfc->fullscreenMonitors.left = xfc->fullscreenMonitors.right = settings->MonitorDefArray[0].orig_screen;
 
 		/* Calculate bounding rectangle around all monitors to be used AND
 		 * also set the Xinerama indices which define left/top/right/bottom monitors.
@@ -350,40 +350,37 @@ BOOL xf_detect_monitors(xfContext* xfc, UINT32* pMaxWidth, UINT32* pMaxHeight)
 			/* does the same as gdk_rectangle_union */
 			int destX = MIN(vX, settings->MonitorDefArray[i].x);
 			int destY = MIN(vY, settings->MonitorDefArray[i].y);
-			int destR = MAX(vR, settings->MonitorDefArray[i].x +
-			                settings->MonitorDefArray[i].width);
-			int destB = MAX(vB, settings->MonitorDefArray[i].y +
-			                settings->MonitorDefArray[i].height);
+			int destWidth = MAX(vX + vWidth, settings->MonitorDefArray[i].x + settings->MonitorDefArray[i].width) - destX;
+			int destHeight = MAX(vY + vHeight, settings->MonitorDefArray[i].y + settings->MonitorDefArray[i].height) - destY;
 
 			if (vX != destX)
 				xfc->fullscreenMonitors.left = settings->MonitorDefArray[i].orig_screen;
 
 			if (vY != destY)
 				xfc->fullscreenMonitors.top = settings->MonitorDefArray[i].orig_screen;
-
-			if (vR != destR)
+			if (vWidth != destWidth)
 				xfc->fullscreenMonitors.right = settings->MonitorDefArray[i].orig_screen;
-
-			if (vB != destB)
+			if (vHeight != destHeight)
 				xfc->fullscreenMonitors.bottom = settings->MonitorDefArray[i].orig_screen;
 
 			vX = destX;
 			vY = destY;
-			vR = destR;
-			vB = destB;
+			vWidth = destWidth;
+			vHeight = destHeight;
 		}
 
 		settings->DesktopPosX = vX;
 		settings->DesktopPosY = vY;
+
 		vscreen->area.left = 0;
-		vscreen->area.right = vR - vX - 1;
+		vscreen->area.right = vWidth - 1;
 		vscreen->area.top = 0;
-		vscreen->area.bottom = vB - vY - 1;
+		vscreen->area.bottom = vHeight - 1;
 
 		if (settings->Workarea)
 		{
 			vscreen->area.top = xfc->workArea.y;
-			vscreen->area.bottom = xfc->workArea.height + xfc->workArea.y - 1;
+			vscreen->area.bottom = (vHeight - (vHeight - (xfc->workArea.height + xfc->workArea.y))) - 1;
 		}
 
 		if (!primaryMonitorFound)
