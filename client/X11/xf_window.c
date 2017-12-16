@@ -190,9 +190,8 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 		/* Lastly apply any monitor shift(translation from remote to local coordinate system)
 		 *  to startX and startY values
 		 */
-		startX = startX + xfc->instance->settings->MonitorLocalShiftX;
-		startY = startY + xfc->instance->settings->MonitorLocalShiftY;
-	}
+		startX = startX + xfc->context.settings->MonitorLocalShiftX;
+		startY = startY + xfc->context.settings->MonitorLocalShiftY;
 
 	xf_ResizeDesktopWindow(xfc, window, width, height);
 
