@@ -210,7 +210,12 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 	status = xf_GetWindowProperty(xfc, DefaultRootWindow(xfc->display),
 	                              xfc->_NET_WM_FULLSCREEN_MONITORS, 1, &nitems, &bytes, &prop);
 
-	printf("status is: %s", status ? "true" : "false");
+
+	printf("status before is: %s\n", status ? "true" : "false");
+
+	status = true;
+
+	printf("status after is: %s\n", status ? "true" : "false");
 
 	if (status)
 	{
