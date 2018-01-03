@@ -196,9 +196,12 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 
 	if (xfc->_NET_WM_FULLSCREEN_MONITORS != None)
 	{
+		printf("_NET_WM_FULLSCREEN_MONITORS is not None\n");
+
 		/* Set monitor bounds */
 		if (settings->MonitorCount > 1)
 		{
+			printf("MonitorCount > 1\n");
 			xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_FULLSCREEN_MONITORS, 5,
 			                   xfc->fullscreenMonitors.top,
 			                   xfc->fullscreenMonitors.bottom,
@@ -211,6 +214,7 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 
 		if (fullscreen)
 		{
+			printf("We are fullscreen\n");
 			/* enter full screen: move the window before adding NET_WM_STATE_FULLSCREEN */
 			XMoveWindow(xfc->display, window->handle, startX, startY);
 		}
@@ -222,12 +226,14 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 
 		if (!fullscreen)
 		{
+			printf("We are not fullscreen\n");
 			/* leave full screen: move the window after removing NET_WM_STATE_FULLSCREEN */
 			XMoveWindow(xfc->display, window->handle, startX, startY);
 		}
 	}
 	else
 	{
+		printf("_NET_WM_FULLSCREEN_MONITORS is None\n");
 		if (fullscreen)
 		{
 			xf_SetWindowDecorations(xfc, window->handle, FALSE);
