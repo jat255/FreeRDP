@@ -6,23 +6,24 @@
 
 int TestQuerySecurityPackageInfo(int argc, char* argv[])
 {
-	int rc;
 	SECURITY_STATUS status;
 	SecPkgInfo* pPackageInfo;
+
 	sspi_GlobalInit();
-	status = QuerySecurityPackageInfo(NTLM_SSP_NAME, &pPackageInfo);
+
+	status = QuerySecurityPackageInfo(NTLMSP_NAME, &pPackageInfo);
 
 	if (status != SEC_E_OK)
-		rc = -1;
-	else
 	{
-		_tprintf(_T("\nQuerySecurityPackageInfo:\n"));
-		_tprintf(_T("\"%s\", \"%s\"\n"), pPackageInfo->Name, pPackageInfo->Comment);
-		rc = 0;
+		sspi_GlobalFinish();
+		return -1;
 	}
 
-	FreeContextBuffer(pPackageInfo);
+	_tprintf(_T("\nQuerySecurityPackageInfo:\n"));
+	_tprintf(_T("\"%s\", \"%s\"\n"), pPackageInfo->Name, pPackageInfo->Comment);
+
 	sspi_GlobalFinish();
-	return rc;
+
+	return 0;
 }
 

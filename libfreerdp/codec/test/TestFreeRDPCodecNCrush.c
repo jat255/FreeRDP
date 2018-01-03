@@ -6,13 +6,13 @@
 static const BYTE TEST_BELLS_DATA[] = "for.whom.the.bell.tolls,.the.bell.tolls.for.thee!";
 
 static const BYTE TEST_BELLS_NCRUSH[] =
-    "\xfb\x1d\x7e\xe4\xda\xc7\x1d\x70\xf8\xa1\x6b\x1f\x7d\xc0\xbe\x6b"
-    "\xef\xb5\xef\x21\x87\xd0\xc5\xe1\x85\x71\xd4\x10\x16\xe7\xda\xfb"
-    "\x1d\x7e\xe4\xda\x47\x1f\xb0\xef\xbe\xbd\xff\x2f";
+	"\xfb\x1d\x7e\xe4\xda\xc7\x1d\x70\xf8\xa1\x6b\x1f\x7d\xc0\xbe\x6b"
+	"\xef\xb5\xef\x21\x87\xd0\xc5\xe1\x85\x71\xd4\x10\x16\xe7\xda\xfb"
+	"\x1d\x7e\xe4\xda\x47\x1f\xb0\xef\xbe\xbd\xff\x2f";
 
-static BOOL test_NCrushCompressBells(void)
+static int test_NCrushCompressBells(void)
 {
-	BOOL rc = FALSE;
+	int rc = -1;
 	int status;
 	UINT32 Flags;
 	UINT32 SrcSize;
@@ -22,9 +22,8 @@ static BOOL test_NCrushCompressBells(void)
 	UINT32 expectedSize;
 	BYTE OutputBuffer[65536];
 	NCRUSH_CONTEXT* ncrush = ncrush_context_new(TRUE);
-
 	if (!ncrush)
-		return rc;
+		return -1;
 
 	SrcSize = sizeof(TEST_BELLS_DATA) - 1;
 	pSrcData = (BYTE*) TEST_BELLS_DATA;
@@ -33,16 +32,13 @@ static BOOL test_NCrushCompressBells(void)
 	DstSize = sizeof(OutputBuffer);
 	ZeroMemory(OutputBuffer, sizeof(OutputBuffer));
 	status = ncrush_compress(ncrush, pSrcData, SrcSize, &pDstData, &DstSize, &Flags);
-
 	if (status < 0)
 		goto fail;
-
 	printf("status: %d Flags: 0x%08"PRIX32" DstSize: %"PRIu32"\n", status, Flags, DstSize);
 
 	if (DstSize != expectedSize)
 	{
-		printf("NCrushCompressBells: output size mismatch: Actual: %"PRIu32", Expected: %"PRIu32"\n",
-		       DstSize, expectedSize);
+		printf("NCrushCompressBells: output size mismatch: Actual: %"PRIu32", Expected: %"PRIu32"\n", DstSize, expectedSize);
 		printf("Actual\n");
 		BitDump(__FUNCTION__, WLOG_INFO, pDstData, DstSize * 8, 0);
 		printf("Expected\n");
@@ -60,15 +56,16 @@ static BOOL test_NCrushCompressBells(void)
 		goto fail;
 	}
 
-	rc = TRUE;
+	rc = 1;
+
 fail:
 	ncrush_context_free(ncrush);
 	return rc;
 }
 
-static BOOL test_NCrushDecompressBells(void)
+static int test_NCrushDecompressBells(void)
 {
-	BOOL rc = FALSE;
+	int rc = -1;
 	int status;
 	UINT32 Flags;
 	BYTE* pSrcData;
@@ -79,14 +76,13 @@ static BOOL test_NCrushDecompressBells(void)
 	NCRUSH_CONTEXT* ncrush = ncrush_context_new(FALSE);
 
 	if (!ncrush)
-		return rc;
+		return -1;
 
 	SrcSize = sizeof(TEST_BELLS_NCRUSH) - 1;
 	pSrcData = (BYTE*) TEST_BELLS_NCRUSH;
 	Flags = PACKET_COMPRESSED | 2;
 	expectedSize = sizeof(TEST_BELLS_DATA) - 1;
 	status = ncrush_decompress(ncrush, pSrcData, SrcSize, &pDstData, &DstSize, Flags);
-
 	if (status < 0)
 		goto fail;
 
@@ -94,8 +90,7 @@ static BOOL test_NCrushDecompressBells(void)
 
 	if (DstSize != expectedSize)
 	{
-		printf("NCrushDecompressBells: output size mismatch: Actual: %"PRIu32", Expected: %"PRIu32"\n",
-		       DstSize, expectedSize);
+		printf("NCrushDecompressBells: output size mismatch: Actual: %"PRIu32", Expected: %"PRIu32"\n", DstSize, expectedSize);
 		goto fail;
 	}
 
@@ -105,7 +100,8 @@ static BOOL test_NCrushDecompressBells(void)
 		goto fail;
 	}
 
-	rc = TRUE;
+	rc = 1;
+
 fail:
 	ncrush_context_free(ncrush);
 	return rc;
@@ -113,10 +109,10 @@ fail:
 
 int TestFreeRDPCodecNCrush(int argc, char* argv[])
 {
-	if (!test_NCrushCompressBells())
+	if (test_NCrushCompressBells() < 0)
 		return -1;
 
-	if (!test_NCrushDecompressBells())
+	if (test_NCrushDecompressBells() < 0)
 		return -1;
 
 	return 0;

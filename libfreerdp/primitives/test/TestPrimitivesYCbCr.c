@@ -2329,23 +2329,23 @@ int TestPrimitivesYCbCr(int argc, char* argv[])
 				prim_size_t roi = { 64, 64 };
 				int rc;
 				printf("----------------------- GENERIC %s [%"PRIu32"x%"PRIu32"] COMPARE CONTENT ----\n",
-				       FreeRDPGetColorFormatName(formats[x]), roi.width, roi.height);
+				       GetColorFormatName(formats[x]), roi.width, roi.height);
 				rc = test_PrimitivesYCbCr(generics, formats[x], roi, TRUE);
 
 				if (rc != PRIMITIVES_SUCCESS)
 					return rc;
 
 				printf("------------------------- END %s ----------------------\n",
-				       FreeRDPGetColorFormatName(formats[x]));
+				       GetColorFormatName(formats[x]));
 				printf("---------------------- OPTIMIZED %s [%"PRIu32"x%"PRIu32"] COMPARE CONTENT ----\n",
-				       FreeRDPGetColorFormatName(formats[x]), roi.width, roi.height);
+				       GetColorFormatName(formats[x]), roi.width, roi.height);
 				rc = test_PrimitivesYCbCr(prims, formats[x], roi, TRUE);
 
 				if (rc != PRIMITIVES_SUCCESS)
 					return rc;
 
 				printf("------------------------- END %s ----------------------\n",
-				       FreeRDPGetColorFormatName(formats[x]));
+				       GetColorFormatName(formats[x]));
 			}
 		}
 		/* Do random data conversion with random sizes */
@@ -2370,23 +2370,23 @@ int TestPrimitivesYCbCr(int argc, char* argv[])
 			{
 				int rc;
 				printf("----------------------- GENERIC %s [%"PRIu32"x%"PRIu32"] COMPARE CONTENT ----\n",
-				       FreeRDPGetColorFormatName(formats[x]), roi.width, roi.height);
+				       GetColorFormatName(formats[x]), roi.width, roi.height);
 				rc = test_PrimitivesYCbCr(generics, formats[x], roi, FALSE);
 
 				if (rc != PRIMITIVES_SUCCESS)
 					return rc;
 
 				printf("------------------------- END %s ----------------------\n",
-				       FreeRDPGetColorFormatName(formats[x]));
+				       GetColorFormatName(formats[x]));
 				printf("---------------------- OPTIMIZED %s [%"PRIu32"x%"PRIu32"] COMPARE CONTENT ----\n",
-				       FreeRDPGetColorFormatName(formats[x]), roi.width, roi.height);
+				       GetColorFormatName(formats[x]), roi.width, roi.height);
 				rc = test_PrimitivesYCbCr(prims, formats[x], roi, FALSE);
 
 				if (rc != PRIMITIVES_SUCCESS)
 					return rc;
 
 				printf("------------------------- END %s ----------------------\n",
-				       FreeRDPGetColorFormatName(formats[x]));
+				       GetColorFormatName(formats[x]));
 			}
 		}
 	}
@@ -2399,23 +2399,23 @@ int TestPrimitivesYCbCr(int argc, char* argv[])
 		{
 			int rc;
 			printf("----------------------- GENERIC %s [%"PRIu32"x%"PRIu32"] COMPARE CONTENT ----\n",
-			       FreeRDPGetColorFormatName(formats[x]), roi.width, roi.height);
+			       GetColorFormatName(formats[x]), roi.width, roi.height);
 			rc = test_PrimitivesYCbCr(generics, formats[x], roi, FALSE);
 
 			if (rc != PRIMITIVES_SUCCESS)
 				return rc;
 
 			printf("------------------------- END %s ----------------------\n",
-			       FreeRDPGetColorFormatName(formats[x]));
+			       GetColorFormatName(formats[x]));
 			printf("---------------------- OPTIMIZED %s [%"PRIu32"x%"PRIu32"] COMPARE CONTENT ----\n",
-			       FreeRDPGetColorFormatName(formats[x]), roi.width, roi.height);
+			       GetColorFormatName(formats[x]), roi.width, roi.height);
 			rc = test_PrimitivesYCbCr(prims, formats[x], roi, FALSE);
 
 			if (rc != PRIMITIVES_SUCCESS)
 				return rc;
 
 			printf("------------------------- END %s ----------------------\n",
-			       FreeRDPGetColorFormatName(formats[x]));
+			       GetColorFormatName(formats[x]));
 		}
 	}
 

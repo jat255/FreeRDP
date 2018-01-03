@@ -42,7 +42,7 @@
  */
 UINT rdpsnd_server_send_formats(RdpsndServerContext* context, wStream* s)
 {
-	size_t pos;
+	int pos;
 	UINT16 i;
 	BOOL status;
 	ULONG written;
@@ -574,11 +574,10 @@ out:
 static UINT rdpsnd_server_set_volume(RdpsndServerContext* context, int left,
                                      int right)
 {
-	size_t pos;
+	int pos;
 	BOOL status;
 	ULONG written;
 	wStream* s = context->priv->rdpsnd_pdu;
-
 	Stream_Write_UINT8(s, SNDC_SETVOLUME);
 	Stream_Write_UINT8(s, 0);
 	Stream_Seek_UINT16(s);
@@ -601,7 +600,7 @@ static UINT rdpsnd_server_set_volume(RdpsndServerContext* context, int left,
  */
 static UINT rdpsnd_server_close(RdpsndServerContext* context)
 {
-	size_t pos;
+	int pos;
 	BOOL status;
 	ULONG written;
 	wStream* s = context->priv->rdpsnd_pdu;

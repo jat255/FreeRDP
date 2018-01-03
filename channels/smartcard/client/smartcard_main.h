@@ -110,6 +110,9 @@ struct _SMARTCARD_DEVICE
 {
 	DEVICE device;
 
+	char* name;
+	char* path;
+
 	HANDLE thread;
 	HANDLE StartedEvent;
 	wMessageQueue* IrpQueue;

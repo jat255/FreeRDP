@@ -144,11 +144,9 @@ static BOOL xf_Bitmap_New(rdpContext* context, rdpBitmap* bitmap)
 		xbitmap->image = XCreateImage(xfc->display, xfc->visual, xfc->depth,
 		                              ZPixmap, 0, (char*) bitmap->data, bitmap->width, bitmap->height,
 		                              xfc->scanline_pad, 0);
+
 		if (!xbitmap->image)
 			goto unlock;
-
-		xbitmap->image->byte_order = LSBFirst;
-		xbitmap->image->bitmap_bit_order = LSBFirst;
 
 		XPutImage(xfc->display, xbitmap->pixmap, xfc->gc, xbitmap->image, 0, 0, 0, 0, bitmap->width,
 		          bitmap->height);
@@ -204,10 +202,6 @@ static BOOL xf_Bitmap_SetSurface(rdpContext* context, rdpBitmap* bitmap,
                                  BOOL primary)
 {
 	xfContext* xfc = (xfContext*) context;
-
-	if (!context || (!bitmap && !primary))
-		return FALSE;
-
 	xf_lock_x11(xfc, FALSE);
 
 	if (primary)
@@ -233,9 +227,9 @@ static BOOL xf_Pointer_New(rdpContext* context, rdpPointer* pointer)
 		return FALSE;
 
 	if (!xfc->invert)
-		CursorFormat = (!xfc->big_endian) ? PIXEL_FORMAT_RGBA32 : PIXEL_FORMAT_ABGR32;
+		CursorFormat = PIXEL_FORMAT_RGBA32;
 	else
-		CursorFormat = (!xfc->big_endian) ? PIXEL_FORMAT_BGRA32 : PIXEL_FORMAT_ARGB32;
+		CursorFormat = PIXEL_FORMAT_BGRA32;
 
 	xf_lock_x11(xfc, FALSE);
 	ZeroMemory(&ci, sizeof(ci));

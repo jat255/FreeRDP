@@ -115,6 +115,8 @@ typedef HRESULT(__stdcall* pfnMFCreateSample)(IMFSample** ppIMFSample);
 typedef HRESULT(__stdcall* pfnMFCreateMemoryBuffer)(DWORD cbMaxLength,
         IMFMediaBuffer** ppBuffer);
 typedef HRESULT(__stdcall* pfnMFCreateMediaType)(IMFMediaType** ppMFType);
+typedef HRESULT(__stdcall* pfnMFCreateDXGIDeviceManager)(UINT* pResetToken,
+        IMFDXGIDeviceManager** ppDXVAManager);
 
 struct _H264_CONTEXT_MF
 {
@@ -133,6 +135,7 @@ struct _H264_CONTEXT_MF
 	pfnMFCreateSample MFCreateSample;
 	pfnMFCreateMemoryBuffer MFCreateMemoryBuffer;
 	pfnMFCreateMediaType MFCreateMediaType;
+	pfnMFCreateDXGIDeviceManager MFCreateDXGIDeviceManager;
 };
 typedef struct _H264_CONTEXT_MF H264_CONTEXT_MF;
 
@@ -512,9 +515,12 @@ static BOOL mf_init(H264_CONTEXT* h264)
 	                                sys->mfplat, "MFCreateMemoryBuffer");
 	sys->MFCreateMediaType = (pfnMFCreateMediaType) GetProcAddress(sys->mfplat,
 	                         "MFCreateMediaType");
+	sys->MFCreateDXGIDeviceManager = (pfnMFCreateDXGIDeviceManager) GetProcAddress(
+	                                     sys->mfplat, "MFCreateDXGIDeviceManager");
 
 	if (!sys->MFStartup || !sys->MFShutdown || !sys->MFCreateSample
-	    || !sys->MFCreateMemoryBuffer || !sys->MFCreateMediaType)
+	    || !sys->MFCreateMemoryBuffer ||
+	    !sys->MFCreateMediaType || !sys->MFCreateDXGIDeviceManager)
 		goto error;
 
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);

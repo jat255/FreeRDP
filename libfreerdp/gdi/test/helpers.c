@@ -111,7 +111,7 @@ static BOOL CompareBitmaps(HGDI_BITMAP hBmp1, HGDI_BITMAP hBmp2,
 			p2 += GetBytesPerPixel(hBmp2->format);
 
 			if (hBmp1->format != hBmp2->format)
-				colorB = FreeRDPConvertColor(colorB, hBmp2->format, hBmp1->format, palette);
+				colorB = ConvertColor(colorB, hBmp2->format, hBmp1->format, palette);
 
 			if (colorA != colorB)
 				return FALSE;
@@ -130,9 +130,7 @@ BOOL test_assert_bitmaps_equal(HGDI_BITMAP hBmpActual,
 
 	if (!bitmapsEqual)
 	{
-		printf("Testing ROP %s [%s|%s]\n", name,
-		       FreeRDPGetColorFormatName(hBmpActual->format),
-		       FreeRDPGetColorFormatName(hBmpExpected->format));
+		printf("\n%s\n", name);
 		test_dump_bitmap(hBmpActual, "Actual");
 		test_dump_bitmap(hBmpExpected, "Expected");
 		fflush(stdout);

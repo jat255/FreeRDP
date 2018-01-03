@@ -81,7 +81,7 @@ static BOOL tsmf_oss_open(ITSMFAudioDevice* audio, const char* device)
 	}
 	else
 	{
-		strncpy(oss->dev_name, device, sizeof(oss->dev_name) - 1);
+		strncpy(oss->dev_name, device, sizeof(oss->dev_name));
 	}
 
 	if ((oss->pcm_handle = open(oss->dev_name, O_WRONLY)) < 0)

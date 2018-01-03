@@ -146,9 +146,7 @@ static void* tf_client_thread_proc(freerdp* instance)
 
 		if (!freerdp_check_event_handles(instance->context))
 		{
-			if (freerdp_get_last_error(instance->context) == FREERDP_ERROR_SUCCESS)
-				WLog_ERR(TAG, "Failed to check FreeRDP event handles");
-
+			WLog_ERR(TAG, "Failed to check FreeRDP event handles");
 			break;
 		}
 	}
@@ -176,6 +174,7 @@ int main(int argc, char* argv[])
 	instance->ContextSize = sizeof(tfContext);
 	instance->ContextNew = tf_context_new;
 	instance->ContextFree = tf_context_free;
+
 	freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 
 	if (!freerdp_context_new(instance))
@@ -191,6 +190,7 @@ int main(int argc, char* argv[])
 	{
 		exit(0);
 	}
+
 
 	if (!freerdp_client_load_addins(instance->context->channels,
 	                                instance->settings))

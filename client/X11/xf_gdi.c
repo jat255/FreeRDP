@@ -241,8 +241,6 @@ static Pixmap xf_brush_new(xfContext* xfc, UINT32 width, UINT32 height,
 		                   &xfc->context.gdi->palette, FREERDP_FLIP_NONE);
 		image = XCreateImage(xfc->display, xfc->visual, xfc->depth,
 		                     ZPixmap, 0, (char*) cdata, width, height, xfc->scanline_pad, 0);
-		image->byte_order = LSBFirst;
-		image->bitmap_bit_order = LSBFirst;
 		gc = XCreateGC(xfc->display, xfc->drawable, 0, NULL);
 		XPutImage(xfc->display, bitmap, gc, image, 0, 0, 0, 0, width, height);
 		XFree(image);
@@ -266,8 +264,6 @@ static Pixmap xf_mono_bitmap_new(xfContext* xfc, int width, int height,
 	bitmap = XCreatePixmap(xfc->display, xfc->drawable, width, height, 1);
 	image = XCreateImage(xfc->display, xfc->visual, 1,
 	                     ZPixmap, 0, (char*) data, width, height, 8, scanline);
-	image->byte_order = LSBFirst;
-	image->bitmap_bit_order = LSBFirst;
 	XPutImage(xfc->display, bitmap, xfc->gc_mono, image, 0, 0, 0, 0, width, height);
 	XFree(image);
 	return bitmap;
@@ -369,12 +365,7 @@ static BOOL xf_gdi_patblt(rdpContext* context, PATBLT_ORDER* patblt)
 		case GDI_BS_PATTERN:
 			if (brush->bpp > 1)
 			{
-				UINT32 bpp = brush->bpp;
-
-				if ((bpp == 16) && (context->settings->ColorDepth == 15))
-					bpp = 15;
-
-				Pixmap pattern = xf_brush_new(xfc, 8, 8, bpp, brush->data);
+				Pixmap pattern = xf_brush_new(xfc, 8, 8, brush->bpp, brush->data);
 				XSetFillStyle(xfc->display, xfc->gc, FillTiled);
 				XSetTile(xfc->display, xfc->gc, pattern);
 				XSetTSOrigin(xfc->display, xfc->gc, brush->x, brush->y);
@@ -686,12 +677,7 @@ static BOOL xf_gdi_mem3blt(rdpContext* context, MEM3BLT_ORDER* mem3blt)
 		case GDI_BS_PATTERN:
 			if (brush->bpp > 1)
 			{
-				UINT32 bpp = brush->bpp;
-
-				if ((bpp == 16) && (context->settings->ColorDepth == 15))
-					bpp = 15;
-
-				pattern = xf_brush_new(xfc, 8, 8, bpp, brush->data);
+				pattern = xf_brush_new(xfc, 8, 8, brush->bpp, brush->data);
 				XSetFillStyle(xfc->display, xfc->gc, FillTiled);
 				XSetTile(xfc->display, xfc->gc, pattern);
 				XSetTSOrigin(xfc->display, xfc->gc, brush->x, brush->y);
@@ -864,12 +850,7 @@ static BOOL xf_gdi_polygon_cb(rdpContext* context,
 	{
 		if (brush->bpp > 1)
 		{
-			UINT32 bpp = brush->bpp;
-
-			if ((bpp == 16) && (context->settings->ColorDepth == 15))
-				bpp = 15;
-
-			pattern = xf_brush_new(xfc, 8, 8, bpp, brush->data);
+			pattern = xf_brush_new(xfc, 8, 8, brush->bpp, brush->data);
 			XSetFillStyle(xfc->display, xfc->gc, FillTiled);
 			XSetTile(xfc->display, xfc->gc, pattern);
 		}
@@ -994,7 +975,6 @@ static BOOL xf_gdi_update_screen(xfContext* xfc, const BYTE* pSrcData,
 	XImage* image;
 	UINT32 i, nbRects;
 	const RECTANGLE_16* rects;
-	UINT32 bpp;
 
 	if (!xfc || !pSrcData)
 		return FALSE;
@@ -1002,12 +982,6 @@ static BOOL xf_gdi_update_screen(xfContext* xfc, const BYTE* pSrcData,
 	if (!(rects = region16_rects(pRegion, &nbRects)))
 		return TRUE;
 
-	if (xfc->depth > 16)
-		bpp = 4;
-	else if (xfc->depth > 8)
-		bpp = 2;
-	else
-		bpp = 1;
 	XSetFunction(xfc->display, xfc->gc, GXcopy);
 	XSetFillStyle(xfc->display, xfc->gc, FillSolid);
 
@@ -1017,15 +991,12 @@ static BOOL xf_gdi_update_screen(xfContext* xfc, const BYTE* pSrcData,
 		UINT32 top = rects[i].top;
 		UINT32 width = rects[i].right - rects[i].left;
 		UINT32 height = rects[i].bottom - rects[i].top;
-		const BYTE* src = pSrcData + top * scanline + bpp * left;
+		const BYTE* src = pSrcData + top * scanline + 4 * left;
 
 		image = XCreateImage(xfc->display, xfc->visual, xfc->depth, ZPixmap, 0,
 		                     (char*) src, width, height, xfc->scanline_pad, scanline);
 		if (!image)
 			break;
-
-		image->byte_order = LSBFirst;
-		image->bitmap_bit_order = LSBFirst;
 
 		XPutImage(xfc->display, xfc->primary, xfc->gc, image, 0, 0, left, top, width, height);
 		XFree(image);
@@ -1087,7 +1058,7 @@ static BOOL xf_gdi_surface_bits(rdpContext* context,
 			format = gdi_get_pixel_format(cmd->bpp);
 
 			if (!freerdp_image_copy(gdi->primary_buffer, gdi->dstFormat, gdi->stride,
-			                        cmd->destLeft, cmd->destTop, cmd->width, cmd->height,
+			                        0, 0, cmd->width, cmd->height,
 			                        pSrcData, format, 0, 0, 0,
 			                        &xfc->context.gdi->palette, FREERDP_FLIP_VERTICAL))
 				goto fail;

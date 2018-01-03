@@ -20,9 +20,6 @@
 #include "config.h"
 #endif
 
-#include <errno.h>
-
-#include <winpr/wtypes.h>
 #include <winpr/crt.h>
 #include <winpr/path.h>
 #include <winpr/print.h>
@@ -159,9 +156,9 @@ static char* rdtk_font_load_descriptor_file(const char* filename, int* pSize)
 	if (!fp)
 		return NULL;
 
-	_fseeki64(fp, 0, SEEK_END);
-	fileSize = _ftelli64(fp);
-	_fseeki64(fp, 0, SEEK_SET);
+	fseek(fp, 0, SEEK_END);
+	fileSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
 
 	if (fileSize < 1)
 	{
@@ -276,15 +273,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, BYTE* buffer, int s
 		return -1;
 
 	*q = '\0';
-	errno = 0;
-	{
-		long val = strtol(p, NULL, 0);
-
-		if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-			return -1;
-
-		font->size = val;
-	}
+	font->size = atoi(p);
 	*q = '"';
 
 	if (font->size <= 0)
@@ -324,15 +313,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, BYTE* buffer, int s
 		return -1;
 
 	*q = '\0';
-	errno = 0;
-	{
-		long val = strtol(p, NULL, 0);
-
-		if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-			return -1;
-
-		font->height = val;
-	}
+	font->height = atoi(p);
 	*q = '"';
 
 	if (font->height <= 0)
@@ -424,15 +405,7 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, BYTE* buffer, int s
 			return -1;
 
 		*q = '\0';
-		errno = 0;
-		{
-			long val = strtoul(p, NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->width = val;
-		}
+		glyph->width = atoi(p);
 		*q = '"';
 
 		if (glyph->width < 0)
@@ -460,23 +433,8 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, BYTE* buffer, int s
 
 		*p = 0;
 		tok[1] = p + 1;
-		errno = 0;
-		{
-			long val = strtol(tok[0], NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->offsetX = val;
-		}
-		{
-			long val = strtol(tok[1], NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->offsetY = val;
-		}
+		glyph->offsetX = atoi(tok[0]);
+		glyph->offsetY = atoi(tok[1]);
 		*q = '"';
 		p = q + 1;
 		/* parse glyph rect x,y,w,h */
@@ -514,39 +472,10 @@ static int rdtk_font_parse_descriptor_buffer(rdtkFont* font, BYTE* buffer, int s
 
 		*p = 0;
 		tok[3] = p + 1;
-		errno = 0;
-		{
-			long val = strtol(tok[0], NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->rectX = val;
-		}
-		{
-			long val = strtol(tok[1], NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->rectY = val;
-		}
-		{
-			long val = strtol(tok[2], NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->rectWidth = val;
-		}
-		{
-			long val = strtol(tok[3], NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return -1;
-
-			glyph->rectHeight = val;
-		}
+		glyph->rectX = atoi(tok[0]);
+		glyph->rectY = atoi(tok[1]);
+		glyph->rectWidth = atoi(tok[2]);
+		glyph->rectHeight = atoi(tok[3]);
 		*q = '"';
 		p = q + 1;
 		/* parse code */
@@ -584,6 +513,7 @@ static int rdtk_font_load_descriptor(rdtkFont* font, const char* filename)
 
 	return rdtk_font_parse_descriptor_buffer(font, (BYTE*) buffer, size);
 }
+
 rdtkFont* rdtk_font_new(rdtkEngine* engine, const char* path, const char* file)
 {
 	int status;
@@ -658,6 +588,7 @@ cleanup:
 
 	return NULL;
 }
+
 static rdtkFont* rdtk_embedded_font_new(rdtkEngine* engine, BYTE* imageData, int imageSize,
                                         BYTE* descriptorData, int descriptorSize)
 {
@@ -711,6 +642,7 @@ static rdtkFont* rdtk_embedded_font_new(rdtkEngine* engine, BYTE* imageData, int
 
 	return font;
 }
+
 void rdtk_font_free(rdtkFont* font)
 {
 	if (font)
@@ -722,6 +654,7 @@ void rdtk_font_free(rdtkFont* font)
 		free(font);
 	}
 }
+
 int rdtk_font_engine_init(rdtkEngine* engine)
 {
 	if (!engine->font)
@@ -742,6 +675,7 @@ int rdtk_font_engine_init(rdtkEngine* engine)
 
 	return 1;
 }
+
 int rdtk_font_engine_uninit(rdtkEngine* engine)
 {
 	if (engine->font)

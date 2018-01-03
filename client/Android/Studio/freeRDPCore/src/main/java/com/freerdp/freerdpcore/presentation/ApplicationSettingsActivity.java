@@ -81,15 +81,13 @@ public class ApplicationSettingsActivity extends AppCompatPreferenceActivity {
 
         @Override
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-            if (isAdded()) {
-                final String clientNameKey = getString(R.string.preference_key_client_name);
+            final String clientNameKey = getString(R.string.preference_key_client_name);
 
-                get(getActivity());
-                if (key.equals(clientNameKey)) {
-                    final String clientNameValue = sharedPreferences.getString(clientNameKey, "");
-                    EditTextPreference pref = (EditTextPreference) findPreference(clientNameKey);
-                    pref.setText(clientNameValue);
-                }
+            get(getActivity());
+            if (key.equals(clientNameKey)) {
+                final String clientNameValue = sharedPreferences.getString(clientNameKey, "");
+                EditTextPreference pref = (EditTextPreference) findPreference(clientNameKey);
+                pref.setText(clientNameValue);
             }
         }
     }
@@ -203,11 +201,6 @@ public class ApplicationSettingsActivity extends AppCompatPreferenceActivity {
     public static boolean getHideStatusBar(Context context) {
         SharedPreferences preferences = get(context);
         return preferences.getBoolean(context.getString(R.string.preference_key_ui_hide_status_bar), false);
-    }
-
-    public static boolean getHideActionBar(Context context) {
-        SharedPreferences preferences = get(context);
-        return preferences.getBoolean(context.getString(R.string.preference_key_ui_hide_action_bar), false);
     }
 
     public static boolean getAcceptAllCertificates(Context context) {

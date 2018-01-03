@@ -1,12 +1,11 @@
 /**
- * FreeRDP: A Remote Desktop Protocol Implementation
+ * WinPR: Windows Portable Runtime
  * Network Level Authentication (NLA)
  *
  * Copyright 2010-2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
  * Copyright 2015 Thincast Technologies GmbH
  * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  * Copyright 2016 Martin Fleisz <martin.fleisz@thincast.com>
- * Copyright 2017 Dorian Ducournau <dorian.ducournau@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +94,7 @@
  *
  */
 
-#define NLA_PKG_NAME	NEGO_SSP_NAME
+#define NLA_PKG_NAME	NEGOSSP_NAME
 
 #define TERMSRV_SPN_PREFIX	"TERMSRV/"
 
@@ -117,7 +116,6 @@ void nla_identity_free(SEC_WINNT_AUTH_IDENTITY* identity)
 {
 	if (identity)
 	{
-		/* Password authentication */
 		if (identity->User)
 		{
 			memset(identity->User, 0, identity->UserLength * 2);
@@ -141,11 +139,11 @@ void nla_identity_free(SEC_WINNT_AUTH_IDENTITY* identity)
 }
 
 /**
- * Initialize NTLM/Kerberos SSP authentication module (client).
+ * Initialize NTLMSSP authentication module (client).
  * @param credssp
  */
 
-static int nla_client_init(rdpNla* nla)
+int nla_client_init(rdpNla* nla)
 {
 	char* spn;
 	int length;
@@ -160,9 +158,8 @@ static int nla_client_init(rdpNla* nla)
 	if (settings->RestrictedAdminModeRequired)
 		settings->DisableCredentialsDelegation = TRUE;
 
-	if ((!settings->Username) || (!strlen(settings->Username))
-	    || (((!settings->Password) || (!strlen(settings->Password)))
-		&& (!settings->RedirectionPassword)))
+	if ((!settings->Password) || (!settings->Username)
+	    || (!strlen(settings->Username)))
 	{
 		PromptPassword = TRUE;
 	}
@@ -223,21 +220,8 @@ static int nla_client_init(rdpNla* nla)
 		nla->identity = NULL;
 	}
 	else
-	{
-		if (settings->RedirectionPassword && settings->RedirectionPasswordLength > 0)
-		{
-			if (sspi_SetAuthIdentityWithUnicodePassword(nla->identity, settings->Username, settings->Domain,
-								    (UINT16*) settings->RedirectionPassword,
-								    settings->RedirectionPasswordLength / sizeof(WCHAR) - 1) < 0)
-				return -1;
-		}
-		else
-		{
-			if (sspi_SetAuthIdentity(nla->identity, settings->Username, settings->Domain,
-						 settings->Password) < 0)
-				return -1;
-		}
-	}
+		sspi_SetAuthIdentity(nla->identity, settings->Username, settings->Domain,
+		                     settings->Password);
 
 #ifndef _WIN32
 	{
@@ -278,7 +262,7 @@ static int nla_client_init(rdpNla* nla)
 
 	if (!sspi_SecBufferAlloc(&nla->PublicKey, tls->PublicKeyLength))
 	{
-		WLog_ERR(TAG, "Failed to allocate sspi secBuffer");
+		WLog_ERR(TAG, "Failed to allocate sspic secBuffer");
 		return -1;
 	}
 
@@ -298,17 +282,6 @@ static int nla_client_init(rdpNla* nla)
 	nla->ServicePrincipalName = spn;
 #endif
 	nla->table = InitSecurityInterfaceEx(0);
-#ifdef WITH_GSSAPI /* KERBEROS SSP */
-	nla->status = nla->table->QuerySecurityPackageInfo(KERBEROS_SSP_NAME, &nla->pPackageInfo);
-
-	if (nla->status != SEC_E_OK)
-	{
-		WLog_ERR(TAG, "QuerySecurityPackageInfo status %s [0x%08"PRIX32"]",
-		         GetSecurityStatusString(nla->status), nla->status);
-		return -1;
-	}
-
-#else /* NTLM SSP */
 	nla->status = nla->table->QuerySecurityPackageInfo(NLA_PKG_NAME, &nla->pPackageInfo);
 
 	if (nla->status != SEC_E_OK)
@@ -318,11 +291,7 @@ static int nla_client_init(rdpNla* nla)
 		return -1;
 	}
 
-#endif
 	nla->cbMaxToken = nla->pPackageInfo->cbMaxToken;
-	nla->packageName = nla->pPackageInfo->Name;
-	WLog_DBG(TAG, "%s %"PRIu32" : packageName=%s ; cbMaxToken=%d", __FUNCTION__, __LINE__,
-	         nla->packageName, nla->cbMaxToken);
 	nla->status = nla->table->AcquireCredentialsHandle(NULL, NLA_PKG_NAME,
 	              SECPKG_CRED_OUTBOUND, NULL, nla->identity, NULL, NULL, &nla->credentials,
 	              &nla->expiration);
@@ -376,33 +345,6 @@ int nla_client_begin(rdpNla* nla)
 	WLog_VRB(TAG, " InitializeSecurityContext status %s [0x%08"PRIX32"]",
 	         GetSecurityStatusString(nla->status), nla->status);
 
-	/* Handle kerberos context initialization failure.
-	 * After kerberos failed initialize NTLM context */
-	if (nla->status == SEC_E_NO_CREDENTIALS)
-	{
-		nla->status = nla->table->InitializeSecurityContext(&nla->credentials,
-		              NULL, nla->ServicePrincipalName, nla->fContextReq, 0,
-		              SECURITY_NATIVE_DREP, NULL, 0, &nla->context,
-		              &nla->outputBufferDesc, &nla->pfContextAttr, &nla->expiration);
-		WLog_VRB(TAG, " InitializeSecurityContext status %s [0x%08"PRIX32"]",
-		         GetSecurityStatusString(nla->status), nla->status);
-
-		if (nla->status)
-		{
-			SECURITY_STATUS status = nla->table->QuerySecurityPackageInfo(NTLM_SSP_NAME, &nla->pPackageInfo);
-
-			if (status != SEC_E_OK)
-			{
-				WLog_ERR(TAG, "QuerySecurityPackageInfo status %s [0x%08"PRIX32"]",
-				         GetSecurityStatusString(nla->status), status);
-				return -1;
-			}
-
-			nla->cbMaxToken = nla->pPackageInfo->cbMaxToken;
-			nla->packageName = nla->pPackageInfo->Name;
-		}
-	}
-
 	if ((nla->status == SEC_I_COMPLETE_AND_CONTINUE) || (nla->status == SEC_I_COMPLETE_NEEDED))
 	{
 		if (nla->table->CompleteAuthToken)
@@ -446,7 +388,7 @@ int nla_client_begin(rdpNla* nla)
 	return 1;
 }
 
-static int nla_client_recv(rdpNla* nla)
+int nla_client_recv(rdpNla* nla)
 {
 	int status = -1;
 
@@ -565,12 +507,7 @@ static int nla_client_recv(rdpNla* nla)
 		}
 
 		nla_buffer_free(nla);
-
-		if (SecIsValidHandle(&nla->credentials))
-		{
-			nla->table->FreeCredentialsHandle(&nla->credentials);
-			SecInvalidateHandle(&nla->credentials);
-		}
+		nla->table->FreeCredentialsHandle(&nla->credentials);
 
 		if (nla->status != SEC_E_OK)
 		{
@@ -596,7 +533,7 @@ static int nla_client_recv(rdpNla* nla)
 	return status;
 }
 
-static int nla_client_authenticate(rdpNla* nla)
+int nla_client_authenticate(rdpNla* nla)
 {
 	wStream* s;
 	int status;
@@ -644,7 +581,7 @@ static int nla_client_authenticate(rdpNla* nla)
  * @param credssp
  */
 
-static int nla_server_init(rdpNla* nla)
+int nla_server_init(rdpNla* nla)
 {
 	rdpTls* tls = nla->transport->tls;
 
@@ -731,7 +668,7 @@ static int nla_server_init(rdpNla* nla)
  * @return 1 if authentication is successful
  */
 
-static int nla_server_authenticate(rdpNla* nla)
+int nla_server_authenticate(rdpNla* nla)
 {
 	if (nla_server_init(nla) < 1)
 		return -1;
@@ -779,33 +716,28 @@ static int nla_server_authenticate(rdpNla* nla)
 
 		if ((nla->status == SEC_I_COMPLETE_AND_CONTINUE) || (nla->status == SEC_I_COMPLETE_NEEDED))
 		{
-			freerdp_peer* peer = nla->instance->context->peer;
+			freerdp_peer *peer = nla->instance->context->peer;
 
 			if (peer->ComputeNtlmHash)
 			{
 				SECURITY_STATUS status;
-				status = nla->table->SetContextAttributes(&nla->context, SECPKG_ATTR_AUTH_NTLM_HASH_CB,
-				         peer->ComputeNtlmHash, 0);
 
+				status = nla->table->SetContextAttributes(&nla->context, SECPKG_ATTR_AUTH_NTLM_HASH_CB, peer->ComputeNtlmHash, 0);
 				if (status != SEC_E_OK)
 				{
-					WLog_ERR(TAG, "SetContextAttributesA(hash cb) status %s [0x%08"PRIX32"]",
-					         GetSecurityStatusString(status), status);
+					WLog_ERR(TAG, "SetContextAttributesA(hash cb) status %s [0x%08"PRIX32"]", GetSecurityStatusString(status), status);
 				}
 
-				status = nla->table->SetContextAttributes(&nla->context, SECPKG_ATTR_AUTH_NTLM_HASH_CB_DATA, peer,
-				         0);
-
+				status = nla->table->SetContextAttributes(&nla->context, SECPKG_ATTR_AUTH_NTLM_HASH_CB_DATA, peer, 0);
 				if (status != SEC_E_OK)
 				{
-					WLog_ERR(TAG, "SetContextAttributesA(hash cb data) status %s [0x%08"PRIX32"]",
-					         GetSecurityStatusString(status), status);
+					WLog_ERR(TAG, "SetContextAttributesA(hash cb data) status %s [0x%08"PRIX32"]", GetSecurityStatusString(status), status);
 				}
 			}
 			else if (nla->SamFile)
 			{
 				nla->table->SetContextAttributes(&nla->context, SECPKG_ATTR_AUTH_NTLM_SAM_FILE, nla->SamFile,
-				                                 strlen(nla->SamFile) + 1);
+						strlen(nla->SamFile) + 1);
 			}
 
 			if (nla->table->CompleteAuthToken)
@@ -846,7 +778,7 @@ static int nla_server_authenticate(rdpNla* nla)
 
 			nla->havePubKeyAuth = TRUE;
 			nla->status = nla->table->QueryContextAttributes(&nla->context, SECPKG_ATTR_SIZES,
-			              &nla->ContextSizes);
+			               &nla->ContextSizes);
 
 			if (nla->status != SEC_E_OK)
 			{
@@ -981,7 +913,7 @@ int nla_authenticate(rdpNla* nla)
 		return nla_client_authenticate(nla);
 }
 
-static void ap_integer_increment_le(BYTE* number, int size)
+void ap_integer_increment_le(BYTE* number, int size)
 {
 	int index;
 
@@ -1000,7 +932,7 @@ static void ap_integer_increment_le(BYTE* number, int size)
 	}
 }
 
-static void ap_integer_decrement_le(BYTE* number, int size)
+void ap_integer_decrement_le(BYTE* number, int size)
 {
 	int index;
 
@@ -1021,35 +953,24 @@ static void ap_integer_decrement_le(BYTE* number, int size)
 
 SECURITY_STATUS nla_encrypt_public_key_echo(rdpNla* nla)
 {
-	SecBuffer Buffers[2] = { 0 };
+	SecBuffer Buffers[2];
 	SecBufferDesc Message;
 	SECURITY_STATUS status;
 	int public_key_length;
 	public_key_length = nla->PublicKey.cbBuffer;
 
-	if (!sspi_SecBufferAlloc(&nla->pubKeyAuth, public_key_length + nla->ContextSizes.cbSecurityTrailer))
+	if (!sspi_SecBufferAlloc(&nla->pubKeyAuth, nla->ContextSizes.cbSecurityTrailer + public_key_length))
 		return SEC_E_INSUFFICIENT_MEMORY;
 
-	if (strcmp(nla->packageName, KERBEROS_SSP_NAME) == 0)
-	{
-		Buffers[0].BufferType = SECBUFFER_DATA; /* TLS Public Key */
-		Buffers[0].cbBuffer = public_key_length;
-		Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
-		CopyMemory(Buffers[0].pvBuffer, nla->PublicKey.pvBuffer, Buffers[0].cbBuffer);
-	}
-	else if ((strcmp(nla->packageName, NEGO_SSP_NAME) == 0) ||
-	         (strcmp(nla->packageName, NTLM_SSP_NAME) == 0))
-	{
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* TLS Public Key */
-		Buffers[1].cbBuffer = public_key_length;
-		Buffers[1].pvBuffer = ((BYTE*) nla->pubKeyAuth.pvBuffer) + nla->ContextSizes.cbSecurityTrailer;
-		CopyMemory(Buffers[1].pvBuffer, nla->PublicKey.pvBuffer, Buffers[1].cbBuffer);
-	}
+	Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
+	Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
+	Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
+	Buffers[1].BufferType = SECBUFFER_DATA; /* TLS Public Key */
+	Buffers[1].cbBuffer = public_key_length;
+	Buffers[1].pvBuffer = ((BYTE*) nla->pubKeyAuth.pvBuffer) + nla->ContextSizes.cbSecurityTrailer;
+	CopyMemory(Buffers[1].pvBuffer, nla->PublicKey.pvBuffer, Buffers[1].cbBuffer);
 
-	if ((strcmp(nla->packageName, KERBEROS_SSP_NAME) != 0) && nla->server)
+	if (nla->server)
 	{
 		/* server echos the public key +1 */
 		ap_integer_increment_le((BYTE*) Buffers[1].pvBuffer, Buffers[1].cbBuffer);
@@ -1067,6 +988,14 @@ SECURITY_STATUS nla_encrypt_public_key_echo(rdpNla* nla)
 		return status;
 	}
 
+	if (Buffers[0].cbBuffer < nla->ContextSizes.cbSecurityTrailer)
+	{
+		/* EncryptMessage may not use all the signature space, so we need to shrink the excess */
+		MoveMemory(((BYTE*)nla->pubKeyAuth.pvBuffer) + Buffers[0].cbBuffer, Buffers[1].pvBuffer,
+		           Buffers[1].cbBuffer);
+		nla->pubKeyAuth.cbBuffer = Buffers[0].cbBuffer + Buffers[1].cbBuffer;
+	}
+
 	return status;
 }
 
@@ -1075,11 +1004,11 @@ SECURITY_STATUS nla_decrypt_public_key_echo(rdpNla* nla)
 	int length;
 	BYTE* buffer;
 	ULONG pfQOP = 0;
-	BYTE* public_key1 = NULL;
-	BYTE* public_key2 = NULL;
-	int public_key_length = 0;
+	BYTE* public_key1;
+	BYTE* public_key2;
+	int public_key_length;
 	int signature_length;
-	SecBuffer Buffers[2] = { 0 };
+	SecBuffer Buffers[2];
 	SecBufferDesc Message;
 	SECURITY_STATUS status;
 	signature_length = nla->pubKeyAuth.cbBuffer - nla->PublicKey.cbBuffer;
@@ -1090,65 +1019,34 @@ SECURITY_STATUS nla_decrypt_public_key_echo(rdpNla* nla)
 		return SEC_E_INVALID_TOKEN;
 	}
 
-	if ((nla->PublicKey.cbBuffer + nla->ContextSizes.cbSecurityTrailer) != nla->pubKeyAuth.cbBuffer)
-	{
-		WLog_ERR(TAG, "unexpected pubKeyAuth buffer size: %"PRIu32"", (int) nla->pubKeyAuth.cbBuffer);
-		return SEC_E_INVALID_TOKEN;
-	}
-
 	length = nla->pubKeyAuth.cbBuffer;
 	buffer = (BYTE*) malloc(length);
 
 	if (!buffer)
 		return SEC_E_INSUFFICIENT_MEMORY;
 
-	if (strcmp(nla->packageName, KERBEROS_SSP_NAME) == 0)
-	{
-		CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_DATA; /* Wrapped and encrypted TLS Public Key */
-		Buffers[0].cbBuffer = length;
-		Buffers[0].pvBuffer = buffer;
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-	else if ((strcmp(nla->packageName, NEGO_SSP_NAME) == 0) ||
-	         (strcmp(nla->packageName,  NTLM_SSP_NAME) == 0))
-	{
-		CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
-		public_key_length = nla->PublicKey.cbBuffer;
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = signature_length;
-		Buffers[0].pvBuffer = buffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* Encrypted TLS Public Key */
-		Buffers[1].cbBuffer = length - signature_length;
-		Buffers[1].pvBuffer = buffer + signature_length;
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-
+	CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
+	public_key_length = nla->PublicKey.cbBuffer;
+	Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
+	Buffers[0].cbBuffer = signature_length;
+	Buffers[0].pvBuffer = buffer;
+	Buffers[1].BufferType = SECBUFFER_DATA; /* Encrypted TLS Public Key */
+	Buffers[1].cbBuffer = length - signature_length;
+	Buffers[1].pvBuffer = buffer + signature_length;
+	Message.cBuffers = 2;
+	Message.ulVersion = SECBUFFER_VERSION;
+	Message.pBuffers = (PSecBuffer) &Buffers;
 	status = nla->table->DecryptMessage(&nla->context, &Message, nla->recvSeqNum++, &pfQOP);
 
 	if (status != SEC_E_OK)
 	{
 		WLog_ERR(TAG, "DecryptMessage failure %s [%08"PRIX32"]",
 		         GetSecurityStatusString(status), status);
-		free(buffer);
 		return status;
 	}
 
-	if (strcmp(nla->packageName, KERBEROS_SSP_NAME) == 0)
-	{
-		public_key1 = public_key2 = (BYTE*) nla->pubKeyAuth.pvBuffer ;
-		public_key_length = length;
-	}
-	else if ((strcmp(nla->packageName, NEGO_SSP_NAME) == 0) ||
-	         (strcmp(nla->packageName, NTLM_SSP_NAME) == 0))
-	{
-		public_key1 = (BYTE*) nla->PublicKey.pvBuffer;
-		public_key2 = (BYTE*) Buffers[1].pvBuffer;
-	}
+	public_key1 = (BYTE*) nla->PublicKey.pvBuffer;
+	public_key2 = (BYTE*) Buffers[1].pvBuffer;
 
 	if (!nla->server)
 	{
@@ -1156,14 +1054,13 @@ SECURITY_STATUS nla_decrypt_public_key_echo(rdpNla* nla)
 		ap_integer_decrement_le(public_key2, public_key_length);
 	}
 
-	if (!public_key1 || !public_key2 || memcmp(public_key1, public_key2, public_key_length) != 0)
+	if (memcmp(public_key1, public_key2, public_key_length) != 0)
 	{
 		WLog_ERR(TAG, "Could not verify server's public key echo");
 		WLog_ERR(TAG, "Expected (length = %d):", public_key_length);
 		winpr_HexDump(TAG, WLOG_ERROR, public_key1, public_key_length);
 		WLog_ERR(TAG, "Actual (length = %d):", public_key_length);
 		winpr_HexDump(TAG, WLOG_ERROR, public_key2, public_key_length);
-		free(buffer);
 		return SEC_E_MESSAGE_ALTERED; /* DO NOT SEND CREDENTIALS! */
 	}
 
@@ -1183,15 +1080,6 @@ int nla_sizeof_ts_password_creds(rdpNla* nla)
 	}
 
 	return length;
-}
-
-static int nla_sizeof_ts_credentials(rdpNla* nla)
-{
-	int size = 0;
-	size += ber_sizeof_integer(1);
-	size += ber_sizeof_contextual_tag(ber_sizeof_integer(1));
-	size += ber_sizeof_sequence_octet_string(ber_sizeof_sequence(nla_sizeof_ts_password_creds(nla)));
-	return size;
 }
 
 BOOL nla_read_ts_password_creds(rdpNla* nla, wStream* s)
@@ -1288,7 +1176,7 @@ BOOL nla_read_ts_password_creds(rdpNla* nla, wStream* s)
 	return TRUE;
 }
 
-static int nla_write_ts_password_creds(rdpNla* nla, wStream* s)
+int nla_write_ts_password_creds(rdpNla* nla, wStream* s)
 {
 	int size = 0;
 	int innerSize = nla_sizeof_ts_password_creds(nla);
@@ -1314,16 +1202,21 @@ static int nla_write_ts_password_creds(rdpNla* nla, wStream* s)
 	return size;
 }
 
+int nla_sizeof_ts_credentials(rdpNla* nla)
+{
+	int size = 0;
+	size += ber_sizeof_integer(1);
+	size += ber_sizeof_contextual_tag(ber_sizeof_integer(1));
+	size += ber_sizeof_sequence_octet_string(ber_sizeof_sequence(nla_sizeof_ts_password_creds(nla)));
+	return size;
+}
+
 static BOOL nla_read_ts_credentials(rdpNla* nla, PSecBuffer ts_credentials)
 {
 	wStream* s;
 	int length;
-	int ts_password_creds_length = 0;
+	int ts_password_creds_length;
 	BOOL ret;
-
-	if (!ts_credentials || !ts_credentials->pvBuffer)
-		return FALSE;
-
 	s = Stream_New(ts_credentials->pvBuffer, ts_credentials->cbBuffer);
 
 	if (!s)
@@ -1345,7 +1238,7 @@ static BOOL nla_read_ts_credentials(rdpNla* nla, PSecBuffer ts_credentials)
 	return ret;
 }
 
-static int nla_write_ts_credentials(rdpNla* nla, wStream* s)
+int nla_write_ts_credentials(rdpNla* nla, wStream* s)
 {
 	int size = 0;
 	int passwordSize;
@@ -1368,7 +1261,7 @@ static int nla_write_ts_credentials(rdpNla* nla, wStream* s)
  * @param credssp
  */
 
-static BOOL nla_encode_ts_credentials(rdpNla* nla)
+BOOL nla_encode_ts_credentials(rdpNla* nla)
 {
 	wStream* s;
 	int length;
@@ -1378,7 +1271,6 @@ static BOOL nla_encode_ts_credentials(rdpNla* nla)
 
 	if (nla->identity)
 	{
-		/* TSPasswordCreds */
 		DomainLength = nla->identity->DomainLength;
 		UserLength = nla->identity->UserLength;
 		PasswordLength = nla->identity->PasswordLength;
@@ -1386,7 +1278,6 @@ static BOOL nla_encode_ts_credentials(rdpNla* nla)
 
 	if (nla->settings->DisableCredentialsDelegation && nla->identity)
 	{
-		/* TSPasswordCreds */
 		nla->identity->DomainLength = 0;
 		nla->identity->UserLength = 0;
 		nla->identity->PasswordLength = 0;
@@ -1413,7 +1304,6 @@ static BOOL nla_encode_ts_credentials(rdpNla* nla)
 
 	if (nla->settings->DisableCredentialsDelegation)
 	{
-		/* TSPasswordCreds */
 		nla->identity->DomainLength = DomainLength;
 		nla->identity->UserLength = UserLength;
 		nla->identity->PasswordLength = PasswordLength;
@@ -1423,9 +1313,9 @@ static BOOL nla_encode_ts_credentials(rdpNla* nla)
 	return TRUE;
 }
 
-static SECURITY_STATUS nla_encrypt_ts_credentials(rdpNla* nla)
+SECURITY_STATUS nla_encrypt_ts_credentials(rdpNla* nla)
 {
-	SecBuffer Buffers[2] = { 0 };
+	SecBuffer Buffers[2];
 	SecBufferDesc Message;
 	SECURITY_STATUS status;
 
@@ -1433,35 +1323,20 @@ static SECURITY_STATUS nla_encrypt_ts_credentials(rdpNla* nla)
 		return SEC_E_INSUFFICIENT_MEMORY;
 
 	if (!sspi_SecBufferAlloc(&nla->authInfo,
-	                         nla->tsCredentials.cbBuffer + nla->ContextSizes.cbSecurityTrailer))
+	                         nla->ContextSizes.cbSecurityTrailer + nla->tsCredentials.cbBuffer))
 		return SEC_E_INSUFFICIENT_MEMORY;
 
-	if (strcmp(nla->packageName, KERBEROS_SSP_NAME) == 0)
-	{
-		Buffers[0].BufferType = SECBUFFER_DATA; /* TSCredentials */
-		Buffers[0].cbBuffer = nla->tsCredentials.cbBuffer;
-		Buffers[0].pvBuffer = nla->authInfo.pvBuffer;
-		CopyMemory(Buffers[0].pvBuffer, nla->tsCredentials.pvBuffer, Buffers[0].cbBuffer);
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-	else if ((strcmp(nla->packageName, NEGO_SSP_NAME) == 0) ||
-	         (strcmp(nla->packageName, NTLM_SSP_NAME) == 0))
-	{
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = nla->authInfo.pvBuffer;
-		MoveMemory(Buffers[0].pvBuffer, nla->authInfo.pvBuffer, Buffers[0].cbBuffer);
-		Buffers[1].BufferType = SECBUFFER_DATA; /* TSCredentials */
-		Buffers[1].cbBuffer = nla->tsCredentials.cbBuffer;
-		Buffers[1].pvBuffer = &((BYTE*) nla->authInfo.pvBuffer)[Buffers[0].cbBuffer];
-		CopyMemory(Buffers[1].pvBuffer, nla->tsCredentials.pvBuffer, Buffers[1].cbBuffer);
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-
+	Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
+	Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
+	Buffers[0].pvBuffer = nla->authInfo.pvBuffer;
+	ZeroMemory(Buffers[0].pvBuffer, Buffers[0].cbBuffer);
+	Buffers[1].BufferType = SECBUFFER_DATA; /* TSCredentials */
+	Buffers[1].cbBuffer = nla->tsCredentials.cbBuffer;
+	Buffers[1].pvBuffer = &((BYTE*) nla->authInfo.pvBuffer)[Buffers[0].cbBuffer];
+	CopyMemory(Buffers[1].pvBuffer, nla->tsCredentials.pvBuffer, Buffers[1].cbBuffer);
+	Message.cBuffers = 2;
+	Message.ulVersion = SECBUFFER_VERSION;
+	Message.pBuffers = (PSecBuffer) &Buffers;
 	status = nla->table->EncryptMessage(&nla->context, 0, &Message, nla->sendSeqNum++);
 
 	if (status != SEC_E_OK)
@@ -1471,17 +1346,27 @@ static SECURITY_STATUS nla_encrypt_ts_credentials(rdpNla* nla)
 		return status;
 	}
 
+	if (Buffers[0].cbBuffer < nla->ContextSizes.cbSecurityTrailer)
+	{
+		/* EncryptMessage may not use all the signature space, so we need to shrink the excess */
+		MoveMemory(((BYTE*)nla->authInfo.pvBuffer) + Buffers[0].cbBuffer, Buffers[1].pvBuffer,
+		           Buffers[1].cbBuffer);
+		nla->authInfo.cbBuffer = Buffers[0].cbBuffer + Buffers[1].cbBuffer;
+	}
+
 	return SEC_E_OK;
 }
 
-static SECURITY_STATUS nla_decrypt_ts_credentials(rdpNla* nla)
+SECURITY_STATUS nla_decrypt_ts_credentials(rdpNla* nla)
 {
 	int length;
 	BYTE* buffer;
 	ULONG pfQOP;
-	SecBuffer Buffers[2] = { 0 };
+	SecBuffer Buffers[2];
 	SecBufferDesc Message;
 	SECURITY_STATUS status;
+	Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
+	Buffers[1].BufferType = SECBUFFER_DATA; /* TSCredentials */
 
 	if (nla->authInfo.cbBuffer < 1)
 	{
@@ -1495,38 +1380,20 @@ static SECURITY_STATUS nla_decrypt_ts_credentials(rdpNla* nla)
 	if (!buffer)
 		return SEC_E_INSUFFICIENT_MEMORY;
 
-	if (strcmp(nla->packageName, KERBEROS_SSP_NAME) == 0)
-	{
-		CopyMemory(buffer, nla->authInfo.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_DATA; /* Wrapped and encrypted TSCredentials */
-		Buffers[0].cbBuffer = length;
-		Buffers[0].pvBuffer = buffer;
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-	else if ((strcmp(nla->packageName,  NEGO_SSP_NAME) == 0) ||
-	         (strcmp(nla->packageName, NTLM_SSP_NAME) == 0))
-	{
-		CopyMemory(buffer, nla->authInfo.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = buffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* TSCredentials */
-		Buffers[1].cbBuffer = length - nla->ContextSizes.cbSecurityTrailer;
-		Buffers[1].pvBuffer = &buffer[ Buffers[0].cbBuffer ];
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-
+	CopyMemory(buffer, nla->authInfo.pvBuffer, length);
+	Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
+	Buffers[0].pvBuffer = buffer;
+	Buffers[1].cbBuffer = length - nla->ContextSizes.cbSecurityTrailer;
+	Buffers[1].pvBuffer = &buffer[nla->ContextSizes.cbSecurityTrailer];
+	Message.cBuffers = 2;
+	Message.ulVersion = SECBUFFER_VERSION;
+	Message.pBuffers = (PSecBuffer) &Buffers;
 	status = nla->table->DecryptMessage(&nla->context, &Message, nla->recvSeqNum++, &pfQOP);
 
 	if (status != SEC_E_OK)
 	{
 		WLog_ERR(TAG, "DecryptMessage failure %s [0x%08"PRIX32"]",
 		         GetSecurityStatusString(status), status);
-		free(buffer);
 		return status;
 	}
 
@@ -1540,14 +1407,14 @@ static SECURITY_STATUS nla_decrypt_ts_credentials(rdpNla* nla)
 	return SEC_E_OK;
 }
 
-static int nla_sizeof_nego_token(int length)
+int nla_sizeof_nego_token(int length)
 {
 	length = ber_sizeof_octet_string(length);
 	length += ber_sizeof_contextual_tag(length);
 	return length;
 }
 
-static int nla_sizeof_nego_tokens(int length)
+int nla_sizeof_nego_tokens(int length)
 {
 	length = nla_sizeof_nego_token(length);
 	length += ber_sizeof_sequence_tag(length);
@@ -1556,21 +1423,21 @@ static int nla_sizeof_nego_tokens(int length)
 	return length;
 }
 
-static int nla_sizeof_pub_key_auth(int length)
+int nla_sizeof_pub_key_auth(int length)
 {
 	length = ber_sizeof_octet_string(length);
 	length += ber_sizeof_contextual_tag(length);
 	return length;
 }
 
-static int nla_sizeof_auth_info(int length)
+int nla_sizeof_auth_info(int length)
 {
 	length = ber_sizeof_octet_string(length);
 	length += ber_sizeof_contextual_tag(length);
 	return length;
 }
 
-static int nla_sizeof_ts_request(int length)
+int nla_sizeof_ts_request(int length)
 {
 	length += ber_sizeof_integer(2);
 	length += ber_sizeof_contextual_tag(3);
@@ -1671,7 +1538,7 @@ BOOL nla_send(rdpNla* nla)
 	return TRUE;
 }
 
-static int nla_decode_ts_request(rdpNla* nla, wStream* s)
+int nla_decode_ts_request(rdpNla* nla, wStream* s)
 {
 	int length;
 
@@ -1750,57 +1617,8 @@ int nla_recv_pdu(rdpNla* nla, wStream* s)
 
 	if (nla->errorCode)
 	{
-		UINT32 code;
-
-		switch (nla->errorCode)
-		{
-			case STATUS_PASSWORD_MUST_CHANGE:
-				code = FREERDP_ERROR_CONNECT_PASSWORD_MUST_CHANGE;
-				break;
-
-			case STATUS_PASSWORD_EXPIRED:
-				code = FREERDP_ERROR_CONNECT_PASSWORD_EXPIRED;
-				break;
-
-			case STATUS_ACCOUNT_DISABLED:
-				code = FREERDP_ERROR_CONNECT_ACCOUNT_DISABLED;
-				break;
-
-			case STATUS_LOGON_FAILURE:
-				code = FREERDP_ERROR_CONNECT_LOGON_FAILURE;
-				break;
-
-			case STATUS_WRONG_PASSWORD:
-				code = FREERDP_ERROR_CONNECT_WRONG_PASSWORD;
-				break;
-
-			case STATUS_ACCESS_DENIED:
-				code = FREERDP_ERROR_CONNECT_ACCESS_DENIED;
-				break;
-
-			case STATUS_ACCOUNT_RESTRICTION:
-				code = FREERDP_ERROR_CONNECT_ACCOUNT_RESTRICTION;
-				break;
-
-			case STATUS_ACCOUNT_LOCKED_OUT:
-				code = FREERDP_ERROR_CONNECT_ACCOUNT_LOCKED_OUT;
-				break;
-
-			case STATUS_ACCOUNT_EXPIRED:
-				code = FREERDP_ERROR_CONNECT_ACCOUNT_EXPIRED;
-				break;
-
-			case STATUS_LOGON_TYPE_NOT_GRANTED:
-				code = FREERDP_ERROR_CONNECT_LOGON_TYPE_NOT_GRANTED;
-				break;
-
-			default:
-				WLog_ERR(TAG, "SPNEGO failed with NTSTATUS: 0x%08"PRIX32"", nla->errorCode);
-				code = FREERDP_ERROR_AUTHENTICATION_FAILED;
-				break;
-		}
-
-		freerdp_set_last_error(nla->instance->context, code);
+		WLog_ERR(TAG, "SPNEGO failed with NTSTATUS: 0x%08"PRIX32"", nla->errorCode);
+		freerdp_set_last_error(nla->instance->context, nla->errorCode);
 		return -1;
 	}
 
@@ -1947,7 +1765,6 @@ rdpNla* nla_new(freerdp* instance, rdpTransport* transport, rdpSettings* setting
 		return NULL;
 
 	nla->identity = calloc(1, sizeof(SEC_WINNT_AUTH_IDENTITY));
-
 	if (!nla->identity)
 	{
 		free(nla);
@@ -2033,20 +1850,6 @@ void nla_free(rdpNla* nla)
 	if (nla->table)
 	{
 		SECURITY_STATUS status;
-
-		if (SecIsValidHandle(&nla->credentials))
-		{
-			status = nla->table->FreeCredentialsHandle(&nla->credentials);
-
-			if (status != SEC_E_OK)
-			{
-				WLog_WARN(TAG, "FreeCredentialsHandle status %s [0x%08"PRIX32"]",
-				          GetSecurityStatusString(status), status);
-			}
-
-			SecInvalidateHandle(&nla->credentials);
-		}
-
 		status = nla->table->DeleteSecurityContext(&nla->context);
 
 		if (status != SEC_E_OK)

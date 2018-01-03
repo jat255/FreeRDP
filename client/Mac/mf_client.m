@@ -90,7 +90,7 @@ static BOOL mfreerdp_client_new(freerdp* instance, rdpContext* context)
 	context->instance->PostConnect = mac_post_connect;
 	context->instance->Authenticate = mac_authenticate;
 	settings = instance->settings;
-	settings->AsyncTransport = FALSE;
+	settings->AsyncTransport = TRUE;
 	settings->AsyncUpdate = TRUE;
 	settings->AsyncInput = TRUE;
 	return TRUE;
@@ -128,7 +128,7 @@ static void freerdp_client_mouse_event(rdpContext* cfc, DWORD flags, int x,
 	if (y >= height)
 		y = height - 1;
 
-	freerdp_input_send_mouse_event(input, flags, x, y);
+	input->MouseEvent(input, flags, x, y);
 }
 
 void mf_scale_mouse_event(void* context, rdpInput* input, UINT16 flags,
@@ -153,12 +153,12 @@ void mf_scale_mouse_event(void* context, rdpInput* input, UINT16 flags,
 			y -= (dh - wh);
 		}
 
-		freerdp_input_send_mouse_event(input, flags, x + mfc->xCurrentScroll, y);
+		input->MouseEvent(input, flags, x + mfc->xCurrentScroll, y);
 	}
 	else
 	{
 		y = y * dh / wh + mfc->yCurrentScroll;
-		freerdp_input_send_mouse_event(input, flags, x * dw / ww + mfc->xCurrentScroll, y);
+		input->MouseEvent(input, flags, x * dw / ww + mfc->xCurrentScroll, y);
 	}
 }
 

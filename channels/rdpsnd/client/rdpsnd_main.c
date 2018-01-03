@@ -34,7 +34,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include <winpr/crt.h>
 #include <winpr/wlog.h>
@@ -225,8 +224,8 @@ static void rdpsnd_select_supported_audio_formats(rdpsndPlugin* rdpsnd)
 		return;
 
 	rdpsnd->ClientFormats = (AUDIO_FORMAT*) calloc(
-	                            rdpsnd->NumberOfServerFormats,
-	                            sizeof(AUDIO_FORMAT));
+	                        rdpsnd->NumberOfServerFormats,
+				sizeof(AUDIO_FORMAT));
 
 	if (!rdpsnd->ClientFormats)
 		return;
@@ -872,7 +871,6 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, ADDIN_ARGV* args)
 			return CHANNEL_RC_INITIALIZATION_ERROR;
 
 		arg = rdpsnd_args;
-		errno = 0;
 
 		do
 		{
@@ -892,43 +890,23 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, ADDIN_ARGV* args)
 			}
 			CommandLineSwitchCase(arg, "format")
 			{
-				unsigned long val = strtoul(arg->Value, NULL, 0);
-
-				if ((errno != 0) || (val > UINT16_MAX))
-					return CHANNEL_RC_INITIALIZATION_ERROR;
-
-				rdpsnd->fixedFormat = val;
+				rdpsnd->fixedFormat = atoi(arg->Value);
 			}
 			CommandLineSwitchCase(arg, "rate")
 			{
-				unsigned long val = strtoul(arg->Value, NULL, 0);
-
-				if ((errno != 0) || (val > UINT32_MAX))
-					return CHANNEL_RC_INITIALIZATION_ERROR;
-
-				rdpsnd->fixedRate = val;
+				rdpsnd->fixedRate = atoi(arg->Value);
 			}
 			CommandLineSwitchCase(arg, "channel")
 			{
-				unsigned long val = strtoul(arg->Value, NULL, 0);
-
-				if ((errno != 0) || (val > UINT16_MAX))
-					return CHANNEL_RC_INITIALIZATION_ERROR;
-
-				rdpsnd->fixedChannel = val;
+				rdpsnd->fixedChannel = atoi(arg->Value);
 			}
 			CommandLineSwitchCase(arg, "latency")
 			{
-				unsigned long val = strtoul(arg->Value, NULL, 0);
-
-				if ((errno != 0) || (val > INT32_MAX))
-					return CHANNEL_RC_INITIALIZATION_ERROR;
-
-				rdpsnd->latency = val;
+				rdpsnd->latency = atoi(arg->Value);
 			}
 			CommandLineSwitchCase(arg, "quality")
 			{
-				long wQualityMode = DYNAMIC_QUALITY;
+				int wQualityMode = DYNAMIC_QUALITY;
 
 				if (_stricmp(arg->Value, "dynamic") == 0)
 					wQualityMode = DYNAMIC_QUALITY;
@@ -937,12 +915,7 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, ADDIN_ARGV* args)
 				else if (_stricmp(arg->Value, "high") == 0)
 					wQualityMode = HIGH_QUALITY;
 				else
-				{
-					wQualityMode = strtol(arg->Value, NULL, 0);
-
-					if (errno != 0)
-						return CHANNEL_RC_INITIALIZATION_ERROR;
-				}
+					wQualityMode = atoi(arg->Value);
 
 				if ((wQualityMode < 0) || (wQualityMode > 2))
 					wQualityMode = DYNAMIC_QUALITY;

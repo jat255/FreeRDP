@@ -98,7 +98,7 @@ int freerdp_keyboard_init_x11_evdev(DWORD* keyboardLayoutId, DWORD x11_keycode_t
 DWORD freerdp_keyboard_init(DWORD keyboardLayoutId)
 {
 	DWORD keycode;
-#if defined(__APPLE__) || defined(WITH_X11) || defined(WITH_WAYLAND)
+#if defined(__APPLE__) || defined(WITH_X11)
 	int status = -1;
 #endif
 
@@ -107,7 +107,7 @@ DWORD freerdp_keyboard_init(DWORD keyboardLayoutId)
 		status = freerdp_keyboard_init_apple(&keyboardLayoutId, X11_KEYCODE_TO_VIRTUAL_SCANCODE);
 #endif
 
-#if defined(WITH_X11) || defined(WITH_WAYLAND)
+#ifdef WITH_X11
 
 #ifdef WITH_XKBFILE
 	if (status < 0)

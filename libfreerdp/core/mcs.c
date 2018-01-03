@@ -325,7 +325,7 @@ static BOOL mcs_read_domain_parameters(wStream* s, DomainParameters* domainParam
 
 static BOOL mcs_write_domain_parameters(wStream* s, DomainParameters* domainParameters)
 {
-	size_t length;
+	int length;
 	wStream* tmps;
 
 	if (!s || !domainParameters)
@@ -672,9 +672,9 @@ out:
 BOOL mcs_send_connect_initial(rdpMcs* mcs)
 {
 	int status = -1;
-	size_t length;
+	int length;
 	wStream* s = NULL;
-	size_t bm, em;
+	int bm, em;
 	wStream* gcc_CCrq = NULL;
 	wStream* client_data = NULL;
 
@@ -782,10 +782,10 @@ BOOL mcs_recv_connect_response(rdpMcs* mcs, wStream* s)
 
 BOOL mcs_send_connect_response(rdpMcs* mcs)
 {
-	size_t length;
+	int length;
 	int status;
 	wStream* s;
-	size_t bm, em;
+	int bm, em;
 	wStream* gcc_CCrsp;
 	wStream* server_data;
 

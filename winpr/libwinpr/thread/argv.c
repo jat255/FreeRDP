@@ -96,7 +96,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 	char* pEnd;
 	char* buffer;
 	char* pOutput;
-	int numArgs = 0;
+	int numArgs;
 	LPSTR* pArgs;
 	int maxNumArgs;
 	int maxBufferSize;
@@ -111,6 +111,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 		return NULL;
 
 	pArgs = NULL;
+	numArgs = 0;
 	lpEscapedCmdLine = NULL;
 	cmdLineLength = (int) strlen(lpCmdLine);
 	lpEscapedChars = (BOOL*) calloc(cmdLineLength + 1, sizeof(BOOL));
@@ -203,6 +204,7 @@ LPSTR* CommandLineToArgvA(LPCSTR lpCmdLine, int* pNumArgs)
 
 	pArgs = (LPSTR*) buffer;
 	pOutput = (char*) &buffer[maxNumArgs * (sizeof(char*))];
+	numArgs = 0;
 	p = (char*) lpCmdLine;
 
 	while (p < lpCmdLine + cmdLineLength)

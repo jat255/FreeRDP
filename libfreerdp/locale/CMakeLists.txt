@@ -69,8 +69,4 @@ if(WITH_X11)
 	endif()
 endif()
 
-if(WITH_WAYLAND)
-	freerdp_definition_add(-DWITH_WAYLAND)
-endif()
-
 freerdp_module_add(${${MODULE_PREFIX}_SRCS})

@@ -18,17 +18,14 @@ import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
 import com.freerdp.freerdpcore.application.SessionState;
-import com.freerdp.freerdpcore.services.LibFreeRDP;
 import com.freerdp.freerdpcore.utils.DoubleGestureDetector;
 import com.freerdp.freerdpcore.utils.GestureDetector;
-import com.freerdp.freerdpcore.utils.Mouse;
 
 import java.util.Stack;
 
@@ -52,7 +49,6 @@ public class SessionView extends View {
     private Matrix invScaleMatrix;
     private RectF invalidRegionF;
     private GestureDetector gestureDetector;
-    private SessionState currentSession;
 
     //private static final String TAG = "FreeRDP.SessionView";
     private DoubleGestureDetector doubleGestureDetector;
@@ -80,8 +76,6 @@ public class SessionView extends View {
         scaleMatrix = new Matrix();
         invScaleMatrix = new Matrix();
         invalidRegionF = new RectF();
-
-        setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 
     public void setScaleGestureDetector(ScaleGestureDetector scaleGestureDetector) {
@@ -116,7 +110,6 @@ public class SessionView extends View {
         setMinimumHeight(height);
 
         requestLayout();
-        currentSession = session;
     }
 
     public float getZoom() {
@@ -288,18 +281,8 @@ public class SessionView extends View {
             // send single click
             MotionEvent mappedEvent = mapTouchEvent(e);
             sessionViewListener.onSessionViewBeginTouch();
-            switch (e.getButtonState()) {
-                case MotionEvent.BUTTON_PRIMARY:
-                    sessionViewListener.onSessionViewLeftTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), true);
-                    sessionViewListener.onSessionViewLeftTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), false);
-                    break;
-                case MotionEvent.BUTTON_SECONDARY:
-                    sessionViewListener.onSessionViewRightTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), true);
-                    sessionViewListener.onSessionViewRightTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), false);
-                    sessionViewListener.onSessionViewLeftTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), true);
-                    sessionViewListener.onSessionViewLeftTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), false);
-                    break;
-            }
+            sessionViewListener.onSessionViewLeftTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), true);
+            sessionViewListener.onSessionViewLeftTouch((int) mappedEvent.getX(), (int) mappedEvent.getY(), false);
             sessionViewListener.onSessionViewEndTouch();
             return true;
         }

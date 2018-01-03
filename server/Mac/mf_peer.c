@@ -25,7 +25,6 @@
 #include <freerdp/codec/rfx.h>
 #include <winpr/stream.h>
 #include <freerdp/peer.h>
-#include <freerdp/codec/color.h>
 
 #include <winpr/crt.h>
 
@@ -34,7 +33,6 @@
 #include "mf_input.h"
 #include "mf_event.h"
 #include "mf_rdpsnd.h"
-#include "mf_audin.h"
 
 #include <mach/clock.h>
 #include <mach/mach.h>
@@ -46,19 +44,22 @@
 #include "CoreVideo/CoreVideo.h"
 
 //refactor these
-static int info_last_sec = 0;
-static int info_last_nsec = 0;
+int info_last_sec = 0;
+int info_last_nsec = 0;
 
-static dispatch_source_t info_timer;
-static dispatch_queue_t info_queue;
+dispatch_source_t info_timer;
+dispatch_queue_t info_queue;
 
-static mfEventQueue* info_event_queue;
+mfEventQueue* info_event_queue;
 
-static CGLContextObj glContext;
-static CGContextRef bmp;
-static CGImageRef img;
 
-static BOOL mf_peer_get_fds(freerdp_peer* client, void** rfds, int* rcount)
+CGLContextObj glContext;
+CGContextRef bmp;
+CGImageRef img;
+
+
+
+BOOL mf_peer_get_fds(freerdp_peer* client, void** rfds, int* rcount)
 {
 	if (info_event_queue->pipe_fd[0] == -1)
 		return TRUE;
@@ -68,8 +69,33 @@ static BOOL mf_peer_get_fds(freerdp_peer* client, void** rfds, int* rcount)
 	return TRUE;
 }
 
+BOOL mf_peer_check_fds(freerdp_peer* client)
+{
+	mfPeerContext* context = (mfPeerContext*) client->context;
+	mfEvent* event;
 
-static void mf_peer_rfx_update(freerdp_peer* client)
+	if (context->activated == FALSE)
+		return TRUE;
+
+	event = mf_event_peek(info_event_queue);
+
+	if (event != NULL)
+	{
+		if (event->type == MF_EVENT_TYPE_REGION)
+		{
+		}
+		else if (event->type == MF_EVENT_TYPE_FRAME_TICK)
+		{
+			event = mf_event_pop(info_event_queue);
+			mf_peer_rfx_update(client);
+			mf_event_free(event);
+		}
+	}
+
+	return TRUE;
+}
+
+void mf_peer_rfx_update(freerdp_peer* client)
 {
 	//check
 	mfInfo* mfi = mf_info_get_instance();
@@ -128,34 +154,8 @@ static void mf_peer_rfx_update(freerdp_peer* client)
 	//clean up... maybe?
 }
 
-static BOOL mf_peer_check_fds(freerdp_peer* client)
-{
-	mfPeerContext* context = (mfPeerContext*) client->context;
-	mfEvent* event;
-
-	if (context->activated == FALSE)
-		return TRUE;
-
-	event = mf_event_peek(info_event_queue);
-
-	if (event != NULL)
-	{
-		if (event->type == FREERDP_SERVER_MAC_EVENT_TYPE_REGION)
-		{
-		}
-		else if (event->type == FREERDP_SERVER_MAC_EVENT_TYPE_FRAME_TICK)
-		{
-			event = mf_event_pop(info_event_queue);
-			mf_peer_rfx_update(client);
-			mf_event_free(event);
-		}
-	}
-
-	return TRUE;
-}
-
 /* Called when we have a new peer connecting */
-static BOOL mf_peer_context_new(freerdp_peer* client, mfPeerContext* context)
+BOOL mf_peer_context_new(freerdp_peer* client, mfPeerContext* context)
 {
 	if (!(context->info = mf_info_get_instance()))
 		return FALSE;
@@ -166,7 +166,7 @@ static BOOL mf_peer_context_new(freerdp_peer* client, mfPeerContext* context)
 	context->rfx_context->mode = RLGR3;
 	context->rfx_context->width = client->settings->DesktopWidth;
 	context->rfx_context->height = client->settings->DesktopHeight;
-	rfx_context_set_pixel_format(context->rfx_context, PIXEL_FORMAT_BGRA32);
+	rfx_context_set_pixel_format(context->rfx_context, RDP_PIXEL_FORMAT_BGRA32);
 
 	if (!(context->s = Stream_New(NULL, 0xFFFF)))
 		goto fail_stream_new;
@@ -189,7 +189,7 @@ fail_rfx_context:
 }
 
 /* Called after a peer disconnects */
-static void mf_peer_context_free(freerdp_peer* client, mfPeerContext* context)
+void mf_peer_context_free(freerdp_peer* client, mfPeerContext* context)
 {
 	if (context)
 	{
@@ -204,19 +204,19 @@ static void mf_peer_context_free(freerdp_peer* client, mfPeerContext* context)
 			audin_server_context_free(context->audin);
 
 #endif
-#ifdef CHANNEL_RDPSND_SERVER
+		//#ifdef CHANNEL_RDPSND_SERVER
 		mf_peer_rdpsnd_stop();
 
 		if (context->rdpsnd)
 			rdpsnd_server_context_free(context->rdpsnd);
 
-#endif
+		//#endif
 		WTSCloseServer(context->vcm);
 	}
 }
 
 /* Called when a new client connects */
-static BOOL mf_peer_init(freerdp_peer* client)
+BOOL mf_peer_init(freerdp_peer* client)
 {
 	client->ContextSize = sizeof(mfPeerContext);
 	client->ContextNew = (psPeerContextNew) mf_peer_context_new;
@@ -239,7 +239,7 @@ static BOOL mf_peer_init(freerdp_peer* client)
 		dispatch_source_set_event_handler(info_timer, ^
 		{
 			//DEBUG_WARN( "dispatch\n");
-			mfEvent* event = mf_event_new(FREERDP_SERVER_MAC_EVENT_TYPE_FRAME_TICK);
+			mfEvent* event = mf_event_new(MF_EVENT_TYPE_FRAME_TICK);
 			mf_event_push(info_event_queue, (mfEvent*) event);
 		}
 		                                 );
@@ -249,7 +249,7 @@ static BOOL mf_peer_init(freerdp_peer* client)
 	return TRUE;
 }
 
-static BOOL mf_peer_post_connect(freerdp_peer* client)
+BOOL mf_peer_post_connect(freerdp_peer* client)
 {
 	mfPeerContext* context = (mfPeerContext*) client->context;
 	rdpSettings* settings = client->settings;
@@ -271,14 +271,12 @@ static BOOL mf_peer_post_connect(freerdp_peer* client)
 	mfi->mouse_down_left = FALSE;
 	mfi->mouse_down_right = FALSE;
 	mfi->mouse_down_other = FALSE;
-#ifdef CHANNEL_RDPSND_SERVER
 
 	if (WTSVirtualChannelManagerIsChannelJoined(context->vcm, "rdpsnd"))
 	{
 		mf_peer_rdpsnd_init(context); /* Audio Output */
 	}
 
-#endif
 	/* Dynamic Virtual Channels */
 #ifdef CHANNEL_AUDIN_SERVER
 	mf_peer_audin_init(context); /* Audio Input */
@@ -286,18 +284,16 @@ static BOOL mf_peer_post_connect(freerdp_peer* client)
 	return TRUE;
 }
 
-static BOOL mf_peer_activate(freerdp_peer* client)
+BOOL mf_peer_activate(freerdp_peer* client)
 {
 	mfPeerContext* context = (mfPeerContext*) client->context;
-	rfx_context_reset(context->rfx_context, client->settings->DesktopWidth,
-	                  client->settings->DesktopHeight);
+	rfx_context_reset(context->rfx_context);
 	context->activated = TRUE;
 	return TRUE;
 }
 
-static BOOL mf_peer_synchronize_event(rdpInput* input, UINT32 flags)
+void mf_peer_synchronize_event(rdpInput* input, UINT32 flags)
 {
-	return TRUE;
 }
 
 void mf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
@@ -312,19 +308,29 @@ void mf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
 	}
 }
 
-static BOOL mf_peer_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
+void mf_peer_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
 {
+}
+
+static void mf_peer_suppress_output(rdpContext* context, BYTE allow,
+                                    RECTANGLE_16* area)
+{
+}
+
+BOOL mf_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
+{
+	pthread_t th;
+
+	if (pthread_create(&th, 0, mf_peer_main_loop, client) == 0)
+	{
+		pthread_detach(th);
+		return TRUE;
+	}
+
 	return FALSE;
 }
 
-static BOOL mf_peer_suppress_output(rdpContext* context, BYTE allow,
-                                    const RECTANGLE_16* area)
-{
-	return FALSE;
-}
-
-
-static void* mf_peer_main_loop(void* arg)
+void* mf_peer_main_loop(void* arg)
 {
 	int i;
 	int fds;
@@ -432,17 +438,4 @@ static void* mf_peer_main_loop(void* arg)
 	freerdp_peer_context_free(client);
 	freerdp_peer_free(client);
 	return NULL;
-}
-
-BOOL mf_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
-{
-	pthread_t th;
-
-	if (pthread_create(&th, 0, mf_peer_main_loop, client) == 0)
-	{
-		pthread_detach(th);
-		return TRUE;
-	}
-
-	return FALSE;
 }

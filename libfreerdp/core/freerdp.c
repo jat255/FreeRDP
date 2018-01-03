@@ -258,7 +258,7 @@ BOOL freerdp_connect(freerdp* instance)
 				Stream_SetLength(s, record.length);
 				Stream_SetPosition(s, 0);
 				update->BeginPaint(update->context);
-				update_recv_surfcmds(update, Stream_Length(s), s);
+				update_recv_surfcmds(update, Stream_Length(s) , s);
 				update->EndPaint(update->context);
 				Stream_Release(s);
 			}
@@ -279,10 +279,6 @@ freerdp_connect_finally:
 	EventArgsInit(&e, "freerdp");
 	e.result = status ? 0 : -1;
 	PubSub_OnConnectionResult(instance->context->pubSub, instance->context, &e);
-
-	if (!status)
-		freerdp_disconnect(instance);
-
 	return status;
 }
 
@@ -370,9 +366,7 @@ BOOL freerdp_check_event_handles(rdpContext* context)
 
 	if (!status)
 	{
-		if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
-			WLog_ERR(TAG, "freerdp_check_fds() failed - %"PRIi32"", status);
-
+		WLog_ERR(TAG, "freerdp_check_fds() failed - %"PRIi32"", status);
 		return FALSE;
 	}
 
@@ -380,9 +374,7 @@ BOOL freerdp_check_event_handles(rdpContext* context)
 
 	if (!status)
 	{
-		if (freerdp_get_last_error(context) == FREERDP_ERROR_SUCCESS)
-			WLog_ERR(TAG, "freerdp_channels_check_fds() failed - %"PRIi32"", status);
-
+		WLog_ERR(TAG, "freerdp_channels_check_fds() failed - %"PRIi32"", status);
 		return FALSE;
 	}
 
@@ -604,8 +596,6 @@ static wEventType FreeRDP_Events[] =
 	DEFINE_EVENT_ENTRY(ChannelConnected)
 	DEFINE_EVENT_ENTRY(ChannelDisconnected)
 	DEFINE_EVENT_ENTRY(MouseEvent)
-	DEFINE_EVENT_ENTRY(Activated)
-	DEFINE_EVENT_ENTRY(Timer)
 };
 
 /** Allocator function for a rdp context.
@@ -936,6 +926,7 @@ freerdp* freerdp_new()
 	if (!instance)
 		return NULL;
 
+	winpr_InitializeSSL(WINPR_SSL_INIT_DEFAULT);
 	instance->ContextSize = sizeof(rdpContext);
 	instance->SendChannelData = freerdp_send_channel_data;
 	instance->ReceiveChannelData = freerdp_channels_data;

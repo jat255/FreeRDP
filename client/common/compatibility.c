@@ -23,8 +23,6 @@
 #include "config.h"
 #endif
 
-#include <errno.h>
-
 #include <winpr/crt.h>
 #include <winpr/cmdline.h>
 
@@ -41,7 +39,7 @@
 
 #define TAG CLIENT_TAG("common.compatibility")
 
-static COMMAND_LINE_ARGUMENT_A old_args[] =
+COMMAND_LINE_ARGUMENT_A old_args[] =
 {
 	{ "0", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL, "connect to console session" },
 	{ "a", COMMAND_LINE_VALUE_REQUIRED, NULL, NULL, NULL, -1, NULL, "set color depth in bits, default is 16" },
@@ -93,66 +91,42 @@ static COMMAND_LINE_ARGUMENT_A old_args[] =
 	{ NULL, 0, NULL, NULL, NULL, -1, NULL, NULL }
 };
 
-static BOOL freerdp_client_old_parse_hostname(char* str, char** ServerHostname, UINT32* ServerPort)
+BOOL freerdp_client_old_parse_hostname(char* str, char** ServerHostname, UINT32* ServerPort)
 {
 	char* p;
-	char* host = NULL;
 
 	if (str[0] == '[' && (p = strchr(str, ']'))
 	    && (p[1] == 0 || (p[1] == ':' && !strchr(p + 2, ':'))))
 	{
 		/* Either "[...]" or "[...]:..." with at most one : after the brackets */
-		if (!(host = _strdup(str + 1)))
+		if (!(*ServerHostname = _strdup(str + 1)))
 			return FALSE;
 
-		if ((p = strchr(host, ']')))
+		if ((p = strchr((char*) *ServerHostname, ']')))
 		{
 			*p = 0;
 
 			if (p[1] == ':')
-			{
-				unsigned long val;
-				errno = 0;
-				val = strtoul(p + 2, NULL, 0);
-
-				if ((errno != 0) || (val == 0) || (val > UINT16_MAX))
-				{
-					free(host);
-					return FALSE;
-				}
-
-				*ServerPort = val;
-			}
+				*ServerPort = atoi(p + 2);
 		}
 	}
 	else
 	{
 		/* Port number is cut off and used if exactly one : in the string */
-		if (!(host = _strdup(str)))
+		if (!(*ServerHostname = _strdup(str)))
 			return FALSE;
 
-		if ((p = strchr(host, ':')) && !strchr(p + 1, ':'))
+		if ((p = strchr((char*) *ServerHostname, ':')) && !strchr(p + 1, ':'))
 		{
-			unsigned long val;
-			errno = 0;
-			val = strtoul(p + 1, NULL, 0);
-
-			if ((errno != 0) || (val == 0) || (val > UINT16_MAX))
-			{
-				free(host);
-				return FALSE;
-			}
-
 			*p = 0;
-			*ServerPort = val;
+			*ServerPort = atoi(p + 1);
 		}
 	}
 
-	*ServerHostname = host;
 	return TRUE;
 }
 
-static int freerdp_client_old_process_plugin(rdpSettings* settings, ADDIN_ARGV* args)
+int freerdp_client_old_process_plugin(rdpSettings* settings, ADDIN_ARGV* args)
 {
 	int args_handled = 0;
 
@@ -231,8 +205,8 @@ static int freerdp_client_old_process_plugin(rdpSettings* settings, ADDIN_ARGV* 
 
 	return args_handled;
 }
-static int freerdp_client_old_command_line_pre_filter(void* context, int index, int argc,
-        LPCSTR* argv)
+
+int freerdp_client_old_command_line_pre_filter(void* context, int index, int argc, LPCSTR* argv)
 {
 	rdpSettings* settings = (rdpSettings*) context;
 
@@ -400,10 +374,12 @@ static int freerdp_client_old_command_line_pre_filter(void* context, int index, 
 
 	return 0;
 }
-static int freerdp_client_old_command_line_post_filter(void* context, COMMAND_LINE_ARGUMENT_A* arg)
+
+int freerdp_client_old_command_line_post_filter(void* context, COMMAND_LINE_ARGUMENT_A* arg)
 {
 	return 0;
 }
+
 int freerdp_detect_old_command_line_syntax(int argc, char** argv, int* count)
 {
 	int status;
@@ -469,6 +445,7 @@ int freerdp_detect_old_command_line_syntax(int argc, char** argv, int* count)
 	free(settings);
 	return detect_status;
 }
+
 int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSettings* settings)
 {
 	char* p;
@@ -504,7 +481,6 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 	}
 
 	arg = old_args;
-	errno = 0;
 
 	do
 	{
@@ -519,12 +495,7 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 		}
 		CommandLineSwitchCase(arg, "a")
 		{
-			unsigned long val = strtoul(arg->Value, NULL, 0);
-
-			if ((errno != 0) || (val > INT8_MAX))
-				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-
-			settings->ColorDepth = val;
+			settings->ColorDepth = atoi(arg->Value);
 			WLog_WARN(TAG,  "-a %s -> /bpp:%s", arg->Value, arg->Value);
 		}
 		CommandLineSwitchCase(arg, "c")
@@ -567,25 +538,9 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 
 			if (p)
 			{
-				unsigned long h, w = strtoul(str, NULL, 0);
-
-				if ((errno != 0) || (w == 0) || (w > UINT16_MAX))
-				{
-					free(str);
-					return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-				}
-
-				h = strtoul(&p[1], NULL, 0);
-
-				if ((errno != 0) || (h == 0) || (h > UINT16_MAX))
-				{
-					free(str);
-					return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-				}
-
 				*p = '\0';
-				settings->DesktopWidth = w;
-				settings->DesktopHeight = h;
+				settings->DesktopWidth = atoi(str);
+				settings->DesktopHeight = atoi(&p[1]);
 			}
 
 			free(str);
@@ -632,12 +587,7 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 		}
 		CommandLineSwitchCase(arg, "t")
 		{
-			unsigned long p = strtoul(arg->Value, NULL, 0);
-
-			if ((errno != 0) || (p == 0) || (p > UINT16_MAX))
-				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-
-			settings->ServerPort = p;
+			settings->ServerPort = atoi(arg->Value);
 			WLog_WARN(TAG,  "-t %s -> /port:%s", arg->Value, arg->Value);
 		}
 		CommandLineSwitchCase(arg, "u")
@@ -649,12 +599,9 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 		}
 		CommandLineSwitchCase(arg, "x")
 		{
-			long type;
+			int type;
 			char* pEnd;
 			type = strtol(arg->Value, &pEnd, 16);
-
-			if (errno != 0)
-				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
 
 			if (type == 0)
 			{
@@ -688,11 +635,7 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 		}
 		CommandLineSwitchCase(arg, "X")
 		{
-			settings->ParentWindowId = _strtoui64(arg->Value, NULL, 0);
-
-			if (errno != 0)
-				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
-
+			settings->ParentWindowId = strtol(arg->Value, NULL, 0);
 			WLog_WARN(TAG,  "-X %s -> /parent-window:%s", arg->Value, arg->Value);
 		}
 		CommandLineSwitchCase(arg, "z")
@@ -863,5 +806,5 @@ int freerdp_client_parse_old_command_line_arguments(int argc, char** argv, rdpSe
 		WLog_WARN(TAG,  " /port:%"PRIu32"", settings->ServerPort);
 
 	WLog_WARN(TAG,  "");
-	return 0;
+	return 1;
 }

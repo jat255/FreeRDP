@@ -52,8 +52,6 @@ typedef struct _DISPLAY_CONTROL_MONITOR_LAYOUT DISPLAY_CONTROL_MONITOR_LAYOUT;
 
 typedef struct _disp_client_context DispClientContext;
 
-typedef UINT (*pcDispCaps)(DispClientContext* context, UINT32 MaxNumMonitors, UINT32 MaxMonitorAreaFactorA,
-							UINT32 MaxMonitorAreaFactorB);
 typedef UINT (*pcDispSendMonitorLayout)(DispClientContext* context, UINT32 NumMonitors, DISPLAY_CONTROL_MONITOR_LAYOUT* Monitors);
 
 struct _disp_client_context
@@ -61,7 +59,6 @@ struct _disp_client_context
 	void* handle;
 	void* custom;
 
-	pcDispCaps DisplayControlCaps;
 	pcDispSendMonitorLayout SendMonitorLayout;
 };
 

@@ -16,71 +16,67 @@
 
 static int test_gdi_PtInRect(void)
 {
-	int rc = -1;
 	HGDI_RECT hRect;
-	UINT32 left = 20;
-	UINT32 top = 40;
-	UINT32 right = 60;
-	UINT32 bottom = 80;
+	int left = 20;
+	int top = 40;
+	int right = 60;
+	int bottom = 80;
 
 	if (!(hRect = gdi_CreateRect(left, top, right, bottom)))
 	{
 		printf("gdi_CreateRect failed\n");
-		return rc;
+		return -1;
 	}
 
 	if (gdi_PtInRect(hRect, 0, 0))
-		goto fail;
+		return -1;
 
 	if (gdi_PtInRect(hRect, 500, 500))
-		goto fail;
+		return -1;
 
 	if (gdi_PtInRect(hRect, 40, 100))
-		goto fail;
+		return -1;
 
 	if (gdi_PtInRect(hRect, 10, 40))
-		goto fail;
+		return -1;
 
 	if (!gdi_PtInRect(hRect, 30, 50))
-		goto fail;
+		return -1;
 
 	if (!gdi_PtInRect(hRect, left, top))
-		goto fail;
+		return -1;
 
 	if (!gdi_PtInRect(hRect, right, bottom))
-		goto fail;
+		return -1;
 
 	if (!gdi_PtInRect(hRect, right, 60))
-		goto fail;
+		return -1;
 
 	if (!gdi_PtInRect(hRect, 40, bottom))
-		goto fail;
+		return -1;
 
-	rc = 0;
-fail:
-	gdi_DeleteObject((HGDIOBJECT)hRect);
-	return rc;
+	return 0;
 }
 
 int test_gdi_FillRect(void)
 {
 	int rc = -1;
-	HGDI_DC hdc = NULL;
-	HGDI_RECT hRect = NULL;
+	HGDI_DC hdc;
+	HGDI_RECT hRect;
 	HGDI_BRUSH hBrush = NULL;
 	HGDI_BITMAP hBitmap = NULL;
 	UINT32 color;
 	UINT32 pixel;
 	UINT32 rawPixel;
-	UINT32 x, y;
-	UINT32 badPixels;
-	UINT32 goodPixels;
-	UINT32 width = 200;
-	UINT32 height = 300;
-	UINT32 left = 20;
-	UINT32 top = 40;
-	UINT32 right = 60;
-	UINT32 bottom = 80;
+	int x, y;
+	int badPixels;
+	int goodPixels;
+	int width = 200;
+	int height = 300;
+	int left = 20;
+	int top = 40;
+	int right = 60;
+	int bottom = 80;
 
 	if (!(hdc = gdi_GetDC()))
 	{
@@ -99,7 +95,7 @@ int test_gdi_FillRect(void)
 	hBitmap = gdi_CreateCompatibleBitmap(hdc, width, height);
 	ZeroMemory(hBitmap->data, width * height * GetBytesPerPixel(hdc->format));
 	gdi_SelectObject(hdc, (HGDIOBJECT) hBitmap);
-	color = FreeRDPGetColor(PIXEL_FORMAT_ARGB32, 0xAA, 0xBB, 0xCC, 0xFF);
+	color = GetColor(PIXEL_FORMAT_ARGB32, 0xAA, 0xBB, 0xCC, 0xFF);
 	hBrush = gdi_CreateSolidBrush(color);
 	gdi_FillRect(hdc, hRect, hBrush);
 	badPixels = 0;
@@ -110,7 +106,7 @@ int test_gdi_FillRect(void)
 		for (y = 0; y < height; y++)
 		{
 			rawPixel = gdi_GetPixel(hdc, x, y);
-			pixel = FreeRDPConvertColor(rawPixel, hdc->format, PIXEL_FORMAT_ARGB32, NULL);
+			pixel = ConvertColor(rawPixel, hdc->format, PIXEL_FORMAT_ARGB32, NULL);
 
 			if (gdi_PtInRect(hRect, x, y))
 			{
@@ -148,8 +144,6 @@ int test_gdi_FillRect(void)
 fail:
 	gdi_DeleteObject((HGDIOBJECT) hBrush);
 	gdi_DeleteObject((HGDIOBJECT) hBitmap);
-	gdi_DeleteObject((HGDIOBJECT)hRect);
-	gdi_DeleteDC(hdc);
 	return rc;
 }
 

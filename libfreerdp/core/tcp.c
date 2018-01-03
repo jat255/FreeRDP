@@ -664,36 +664,25 @@ BIO_METHOD* BIO_s_buffered_socket(void)
 	return bio_methods;
 }
 
-static char* freerdp_tcp_get_ip_address(int sockfd, BOOL* pIPv6)
+char* freerdp_tcp_get_ip_address(int sockfd)
 {
+	BYTE* ip;
 	socklen_t length;
-	char ipAddress[INET6_ADDRSTRLEN + 1];
+	char ipAddress[32];
 	struct sockaddr_in sockaddr;
 	length = sizeof(sockaddr);
 	ZeroMemory(&sockaddr, length);
 
-	if (getsockname(sockfd, (struct sockaddr*) &sockaddr, &length) != 0)
-		return NULL;
-
-	switch (sockaddr.sin_family)
+	if (getsockname(sockfd, (struct sockaddr*) &sockaddr, &length) == 0)
 	{
-		case AF_INET:
-		case AF_INET6:
-			if (!inet_ntop(sockaddr.sin_family, &sockaddr.sin_addr, ipAddress, sizeof(ipAddress)))
-				return NULL;
-
-			break;
-
-		case AF_UNIX:
-			strcpy(ipAddress, "127.0.0.1");
-			break;
-
-		default:
-			return NULL;
+		ip = (BYTE*)(&sockaddr.sin_addr);
+		sprintf_s(ipAddress, sizeof(ipAddress), "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"", ip[0], ip[1], ip[2],
+		          ip[3]);
 	}
-
-	if (pIPv6)
-		*pIPv6 = (sockaddr.sin_family == AF_INET6);
+	else
+	{
+		strcpy(ipAddress, "127.0.0.1");
+	}
 
 	return _strdup(ipAddress);
 }
@@ -754,7 +743,6 @@ static BOOL freerdp_tcp_connect_timeout(rdpContext* context, int sockfd,
                                         struct sockaddr* addr,
                                         socklen_t addrlen, int timeout)
 {
-	BOOL rc = FALSE;
 	HANDLE handles[2];
 	int status = 0;
 	int count = 0;
@@ -770,7 +758,7 @@ static BOOL freerdp_tcp_connect_timeout(rdpContext* context, int sockfd,
 	if (status < 0)
 	{
 		WLog_ERR(TAG, "WSAEventSelect failed with %d", WSAGetLastError());
-		goto fail;
+		return FALSE;
 	}
 
 	handles[count++] = context->abortEvent;
@@ -787,7 +775,7 @@ static BOOL freerdp_tcp_connect_timeout(rdpContext* context, int sockfd,
 				break;
 
 			default:
-				goto fail;
+				return FALSE;
 		}
 	}
 
@@ -798,7 +786,7 @@ static BOOL freerdp_tcp_connect_timeout(rdpContext* context, int sockfd,
 		if (status == WAIT_OBJECT_0 + 1)
 			freerdp_set_last_error(context, FREERDP_ERROR_CONNECT_CANCELLED);
 
-		goto fail;
+		return FALSE;
 	}
 
 	status = recv(sockfd, NULL, 0, 0);
@@ -806,28 +794,26 @@ static BOOL freerdp_tcp_connect_timeout(rdpContext* context, int sockfd,
 	if (status == SOCKET_ERROR)
 	{
 		if (WSAGetLastError() == WSAECONNRESET)
-			goto fail;
+			return FALSE;
 	}
 
 	status = WSAEventSelect(sockfd, handles[0], 0);
+	CloseHandle(handles[0]);
 
 	if (status < 0)
 	{
 		WLog_ERR(TAG, "WSAEventSelect failed with %d", WSAGetLastError());
-		goto fail;
+		return FALSE;
 	}
 
 	if (_ioctlsocket(sockfd, FIONBIO, &arg) != 0)
-		goto fail;
+		return FALSE;
 
-	rc = TRUE;
-fail:
-	CloseHandle(handles[0]);
-	return rc;
+	return TRUE;
 }
 
 static int freerdp_tcp_connect_multi(rdpContext* context, char** hostnames,
-                                     UINT32* ports, UINT32 count, int port,
+                                     UINT32* ports, int count, int port,
                                      int timeout)
 {
 	int index;
@@ -1005,10 +991,6 @@ BOOL freerdp_tcp_set_keep_alive_mode(int sockfd)
 	}
 
 #endif
-#ifndef SOL_TCP
-	/* "tcp" from /etc/protocols as getprotobyname(3C) */
-#define SOL_TCP 6
-#endif
 #ifdef TCP_KEEPCNT
 	optval = 3;
 	optlen = sizeof(optval);
@@ -1124,7 +1106,7 @@ int freerdp_tcp_connect(rdpContext* context, rdpSettings* settings,
 
 			addr = result;
 
-			if ((addr->ai_family == AF_INET6) && (addr->ai_next != 0) && !settings->PreferIPv6OverIPv4)
+			if ((addr->ai_family == AF_INET6) && (addr->ai_next != 0))
 			{
 				while ((addr = addr->ai_next))
 				{
@@ -1157,8 +1139,9 @@ int freerdp_tcp_connect(rdpContext* context, rdpSettings* settings,
 		}
 	}
 
+	settings->IPv6Enabled = FALSE;
 	free(settings->ClientAddress);
-	settings->ClientAddress = freerdp_tcp_get_ip_address(sockfd, &settings->IPv6Enabled);
+	settings->ClientAddress = freerdp_tcp_get_ip_address(sockfd);
 
 	if (!settings->ClientAddress)
 	{

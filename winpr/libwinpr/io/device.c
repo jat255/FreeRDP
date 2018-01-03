@@ -138,7 +138,7 @@ NTSTATUS _IoCreateDeviceEx(PDRIVER_OBJECT_EX DriverObject, ULONG DeviceExtension
 
 	if (!PathFileExistsA(DeviceBasePath))
 	{
-		if (mkdir(DeviceBasePath, S_IRUSR | S_IWUSR | S_IXUSR) != 0)
+		if (!mkdir(DeviceBasePath, S_IRUSR | S_IWUSR | S_IXUSR))
 		{
 			free(DeviceBasePath);
 			return STATUS_ACCESS_DENIED;

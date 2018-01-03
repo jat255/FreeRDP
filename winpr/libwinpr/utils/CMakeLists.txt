@@ -141,7 +141,7 @@ if(UNIX)
 	winpr_library_add(m)
 endif()
 
-if((FREEBSD) AND (NOT KFREEBSD))
+if(FREEBSD)
 	winpr_library_add(execinfo)
 endif()
 

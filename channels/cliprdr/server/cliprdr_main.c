@@ -91,7 +91,7 @@ wStream* cliprdr_server_packet_new(UINT16 msgType, UINT16 msgFlags,
  */
 UINT cliprdr_server_packet_send(CliprdrServerPrivate* cliprdr, wStream* s)
 {
-	size_t pos;
+	UINT32 pos;
 	BOOL status;
 	UINT32 dataLen;
 	UINT32 written;
@@ -628,7 +628,7 @@ static UINT cliprdr_server_receive_format_list(CliprdrServerContext* context,
 {
 	UINT32 index;
 	UINT32 dataLen;
-	size_t position;
+	UINT32 position;
 	BOOL asciiNames;
 	int formatNameLength;
 	char* szFormatName;
@@ -1185,7 +1185,7 @@ static UINT cliprdr_server_init(CliprdrServerContext* context)
 UINT cliprdr_server_read(CliprdrServerContext* context)
 {
 	wStream* s;
-	size_t position;
+	int position;
 	DWORD BytesToRead;
 	DWORD BytesReturned;
 	CLIPRDR_HEADER header;

@@ -74,10 +74,7 @@ static UINT rdpgfx_send_caps_advertise_pdu(RDPGFX_CHANNEL_CALLBACK* callback)
 	if (gfx->ThinClient)
 		capsSet->flags |= RDPGFX_CAPS_FLAG_THINCLIENT;
 
-	/* in CAPVERSION_8 the spec says that we should not have both
-	 * thinclient and smallcache (and thinclient implies a small cache)
-	 */
-	if (gfx->SmallCache && !gfx->ThinClient)
+	if (gfx->SmallCache)
 		capsSet->flags |= RDPGFX_CAPS_FLAG_SMALL_CACHE;
 
 	capsSet = &capsSets[pdu.capsSetCount++];
@@ -95,29 +92,27 @@ static UINT rdpgfx_send_caps_advertise_pdu(RDPGFX_CHANNEL_CALLBACK* callback)
 		capsSet->flags |= RDPGFX_CAPS_FLAG_AVC420_ENABLED;
 #endif
 
-	if (!gfx->H264 || gfx->AVC444)
-	{
-		capsSet = &capsSets[pdu.capsSetCount++];
-		capsSet->version = RDPGFX_CAPVERSION_10;
-		capsSet->flags = 0;
+	capsSet = &capsSets[pdu.capsSetCount++];
+	capsSet->version = RDPGFX_CAPVERSION_10;
+	capsSet->flags = 0;
 
-		if (gfx->SmallCache)
-			capsSet->flags |= RDPGFX_CAPS_FLAG_SMALL_CACHE;
+	if (gfx->SmallCache)
+		capsSet->flags |= RDPGFX_CAPS_FLAG_SMALL_CACHE;
 
 #ifdef WITH_GFX_H264
-		if (!gfx->AVC444)
-			capsSet->flags |= RDPGFX_CAPS_FLAG_AVC_DISABLED;
-#else
+	if (!gfx->AVC444)
 		capsSet->flags |= RDPGFX_CAPS_FLAG_AVC_DISABLED;
+#else
+	capsSet->flags |= RDPGFX_CAPS_FLAG_AVC_DISABLED;
 #endif
 
-		capsSets[pdu.capsSetCount] = *capsSet;
-		capsSets[pdu.capsSetCount++].version = RDPGFX_CAPVERSION_102;
-		capsSets[pdu.capsSetCount] = *capsSet;
-		capsSets[pdu.capsSetCount++].version = RDPGFX_CAPVERSION_103;
-	}
+	capsSets[pdu.capsSetCount] = *capsSet;
+	capsSets[pdu.capsSetCount++].version = RDPGFX_CAPVERSION_102;
+	capsSets[pdu.capsSetCount] = *capsSet;
+	capsSets[pdu.capsSetCount++].version = RDPGFX_CAPVERSION_103;
 
-	header.pduLength = RDPGFX_HEADER_SIZE + 2 + (pdu.capsSetCount * RDPGFX_CAPSET_SIZE);
+	header.pduLength = RDPGFX_HEADER_SIZE + 2 + (pdu.capsSetCount *
+	                   RDPGFX_CAPSET_SIZE);
 	WLog_Print(gfx->log, WLOG_DEBUG, "SendCapsAdvertisePdu %"PRIu16"", pdu.capsSetCount);
 	s = Stream_New(NULL, header.pduLength);
 
@@ -1020,7 +1015,9 @@ static UINT rdpgfx_recv_cache_to_surface_pdu(RDPGFX_CHANNEL_CALLBACK* callback,
 		return ERROR_INVALID_DATA;
 	}
 
-	pdu.destPts = (RDPGFX_POINT16*) calloc(pdu.destPtsCount, sizeof(RDPGFX_POINT16));
+	pdu.destPts = (RDPGFX_POINT16*) calloc(pdu.destPtsCount,
+	                                       sizeof(RDPGFX_POINT16));
+
 	if (!pdu.destPts)
 	{
 		WLog_Print(gfx->log, WLOG_ERROR, "calloc failed!");
@@ -1138,7 +1135,7 @@ static UINT rdpgfx_recv_map_surface_to_window_pdu(RDPGFX_CHANNEL_CALLBACK* callb
  */
 static UINT rdpgfx_recv_pdu(RDPGFX_CHANNEL_CALLBACK* callback, wStream* s)
 {
-	size_t beg, end;
+	int beg, end;
 	RDPGFX_HEADER header;
 	UINT error;
 	RDPGFX_PLUGIN* gfx = (RDPGFX_PLUGIN*) callback->plugin;
@@ -1637,11 +1634,7 @@ static UINT rdpgfx_set_cache_slot_data(RdpgfxClientContext* context,
 	RDPGFX_PLUGIN* gfx = (RDPGFX_PLUGIN*) context->handle;
 
 	if (cacheSlot >= gfx->MaxCacheSlot)
-	{
-		WLog_ERR(TAG, "%s: invalid cache slot %"PRIu16" maxAllowed=%"PRIu16"", __FUNCTION__,
-				cacheSlot, gfx->MaxCacheSlot);
 		return ERROR_INVALID_INDEX;
-	}
 
 	gfx->CacheSlots[cacheSlot] = pData;
 	return CHANNEL_RC_OK;
@@ -1653,11 +1646,7 @@ static void* rdpgfx_get_cache_slot_data(RdpgfxClientContext* context, UINT16 cac
 	RDPGFX_PLUGIN* gfx = (RDPGFX_PLUGIN*) context->handle;
 
 	if (cacheSlot >= gfx->MaxCacheSlot)
-	{
-		WLog_ERR(TAG, "%s: invalid cache slot %"PRIu16" maxAllowed=%"PRIu16"", __FUNCTION__,
-				cacheSlot, gfx->MaxCacheSlot);
 		return NULL;
-	}
 
 	pData = gfx->CacheSlots[cacheSlot];
 	return pData;
@@ -1695,7 +1684,7 @@ UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
 		if (!gfx->log)
 		{
 			free(gfx);
-			WLog_ERR(TAG, "Failed to acquire reference to WLog %s", TAG);
+			WLog_ERR(TAG, "Failed to aquire reference to WLog %s", TAG);
 			return ERROR_INTERNAL_ERROR;
 		}
 
@@ -1724,8 +1713,11 @@ UINT DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* pEntryPoints)
 		if (gfx->H264)
 			gfx->SmallCache = TRUE;
 
-		gfx->MaxCacheSlot = gfx->SmallCache ? 4096 : 25600;
-		context = (RdpgfxClientContext *)calloc(1, sizeof(RdpgfxClientContext));
+		if (gfx->SmallCache)
+			gfx->ThinClient = FALSE;
+
+		gfx->MaxCacheSlot = (gfx->ThinClient) ? 4096 : 25600;
+		context = (RdpgfxClientContext*) calloc(1, sizeof(RdpgfxClientContext));
 
 		if (!context)
 		{

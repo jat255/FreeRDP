@@ -22,8 +22,6 @@
 #include "config.h"
 #endif
 
-#include <errno.h>
-
 #include <winpr/crt.h>
 #include <winpr/ssl.h>
 #include <winpr/wnd.h>
@@ -174,7 +172,6 @@ int shadow_server_parse_command_line(rdpShadowServer* server, int argc, char** a
 		return status;
 
 	arg = shadow_args;
-	errno = 0;
 
 	do
 	{
@@ -184,12 +181,7 @@ int shadow_server_parse_command_line(rdpShadowServer* server, int argc, char** a
 		CommandLineSwitchStart(arg)
 		CommandLineSwitchCase(arg, "port")
 		{
-			long val = strtol(arg->Value, NULL, 0);
-
-			if ((errno != 0) || (val <= 0) || (val > UINT16_MAX))
-				return -1;
-
-			server->port = (DWORD) val;
+			server->port = (DWORD) atoi(arg->Value);
 		}
 		CommandLineSwitchCase(arg, "ipc-socket")
 		{
@@ -210,7 +202,7 @@ int shadow_server_parse_command_line(rdpShadowServer* server, int argc, char** a
 		{
 			char* p;
 			char* tok[4];
-			long x = -1, y = -1, w = -1, h = -1;
+			int x, y, w, h;
 			char* str = _strdup(arg->Value);
 
 			if (!str)
@@ -247,30 +239,13 @@ int shadow_server_parse_command_line(rdpShadowServer* server, int argc, char** a
 
 			*p++ = '\0';
 			tok[3] = p;
-			x = strtol(tok[0], NULL, 0);
-
-			if (errno != 0)
-				goto fail;
-
-			y = strtol(tok[1], NULL, 0);
-
-			if (errno != 0)
-				goto fail;
-
-			w = strtol(tok[2], NULL, 0);
-
-			if (errno != 0)
-				goto fail;
-
-			h = strtol(tok[3], NULL, 0);
-
-			if (errno != 0)
-				goto fail;
-
-		fail:
+			x = atoi(tok[0]);
+			y = atoi(tok[1]);
+			w = atoi(tok[2]);
+			h = atoi(tok[3]);
 			free(str);
 
-			if ((x < 0) || (y < 0) || (w < 1) || (h < 1) || (errno != 0))
+			if ((x < 0) || (y < 0) || (w < 1) || (h < 1))
 				return -1;
 
 			server->subRect.left = x;
@@ -358,12 +333,15 @@ int shadow_server_parse_command_line(rdpShadowServer* server, int argc, char** a
 		if (arg->Flags & COMMAND_LINE_VALUE_PRESENT)
 		{
 			/* Select monitors */
-			long val = strtol(arg->Value, NULL, 0);
+			index = atoi(arg->Value);
 
-			if ((val < 0) || (errno != 0) || (val >= numMonitors))
-				status = COMMAND_LINE_STATUS_PRINT;
+			if (index < 0)
+				index = 0;
 
-			server->selectedMonitor = val;
+			if (index >= numMonitors)
+				index = 0;
+
+			server->selectedMonitor = index;
 		}
 		else
 		{

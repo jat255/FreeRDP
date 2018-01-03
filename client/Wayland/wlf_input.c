@@ -92,7 +92,7 @@ BOOL wlf_handle_key(freerdp *instance, UwacKeyEvent *ev) {
 	rdpInput* input = instance->input;
 	DWORD rdp_scancode;
 
-	rdp_scancode = freerdp_keyboard_get_rdp_scancode_from_x11_keycode(ev->raw_key + 8);
+	rdp_scancode = (DWORD) ev->raw_key;
 
 	if (rdp_scancode == RDP_SCANCODE_UNKNOWN)
 		return TRUE;

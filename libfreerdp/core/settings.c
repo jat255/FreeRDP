@@ -84,6 +84,8 @@ void settings_client_load_hkey_local_machine(rdpSettings* settings)
 		                      settings->DesktopHeight);
 		REG_QUERY_BOOL_VALUE(hKey, _T("Fullscreen"), dwType, dwValue, dwSize,
 		                     settings->Fullscreen);
+		REG_QUERY_BOOL_VALUE(hKey, _T("Openbox"), dwType, dwValue, dwSize,
+		                     settings->Openbox);
 		REG_QUERY_DWORD_VALUE(hKey, _T("ColorDepth"), dwType, dwValue, dwSize,
 		                      settings->ColorDepth);
 		REG_QUERY_DWORD_VALUE(hKey, _T("KeyboardType"), dwType, dwValue, dwSize,
@@ -297,6 +299,7 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	settings->DesktopHeight = 768;
 	settings->Workarea = FALSE;
 	settings->Fullscreen = FALSE;
+	settings->Openbox = FALSE;
 	settings->GrabKeyboard = TRUE;
 	settings->Decorations = TRUE;
 	settings->RdpVersion = 7;
@@ -333,7 +336,6 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 	settings->ConnectionType = CONNECTION_TYPE_LAN;
 	settings->EncryptionMethods = ENCRYPTION_METHOD_NONE;
 	settings->EncryptionLevel = ENCRYPTION_LEVEL_NONE;
-	settings->FIPSMode = FALSE;
 	settings->CompressionEnabled = TRUE;
 	settings->LogonNotify = TRUE;
 
@@ -563,7 +565,6 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 
 	if (!settings->ServerMode)
 	{
-		settings->RedirectClipboard = TRUE;
 		/* these values are used only by the client part */
 		settings->HomePath = GetKnownPath(KNOWN_PATH_HOME);
 

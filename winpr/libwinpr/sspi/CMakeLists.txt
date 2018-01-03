@@ -27,10 +27,6 @@ set(${MODULE_PREFIX}_NTLM_SRCS
 	NTLM/ntlm.c
 	NTLM/ntlm.h)
 
-set(${MODULE_PREFIX}_KERBEROS_SRCS
-	Kerberos/kerberos.c
-	Kerberos/kerberos.h)
-
 set(${MODULE_PREFIX}_NEGOTIATE_SRCS
 	Negotiate/negotiate.c
 	Negotiate/negotiate.h)
@@ -42,20 +38,17 @@ set(${MODULE_PREFIX}_SCHANNEL_SRCS
 	Schannel/schannel.h)
 
 set(${MODULE_PREFIX}_CREDSSP_SRCS
-	CredSSP/credssp.c
-	CredSSP/credssp.h)
+	CredSSP/credssp.c)
 
 set(${MODULE_PREFIX}_SRCS
+	${${MODULE_PREFIX}_CREDSSP_SRCS}
 	sspi_winpr.c
 	sspi_winpr.h
 	sspi_export.c
-	sspi_gss.c
-	sspi_gss.h
 	sspi.c
 	sspi.h)
 
-winpr_module_add(${${MODULE_PREFIX}_CREDSSP_SRCS}
-	${${MODULE_PREFIX}_NTLM_SRCS}
+winpr_module_add(${${MODULE_PREFIX}_NTLM_SRCS}
 	${${MODULE_PREFIX}_KERBEROS_SRCS}
 	${${MODULE_PREFIX}_NEGOTIATE_SRCS}
 	${${MODULE_PREFIX}_SCHANNEL_SRCS}
@@ -69,11 +62,6 @@ endif()
 if(MBEDTLS_FOUND)
 	winpr_include_directory_add(${MBEDTLS_INCLUDE_DIR})
 	winpr_library_add(${MBEDTLS_LIBRARIES})
-endif()
-
-if(GSS_FOUND)
-	winpr_include_directory_add(${GSS_INCLUDE_DIR})
-	winpr_library_add(${GSS_LIBRARIES})
 endif()
 
 if(WIN32)

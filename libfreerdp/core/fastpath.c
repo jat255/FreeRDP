@@ -451,7 +451,7 @@ static int fastpath_recv_update_data(rdpFastPath* fastpath, wStream* s)
 	int status;
 	UINT16 size;
 	rdpRdp* rdp;
-	size_t next_pos;
+	int next_pos;
 	wStream* cs;
 	int bulkStatus;
 	UINT32 totalSize;

@@ -15,26 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set (CRT_FILES alignment.c
+winpr_module_add(
+	alignment.c
 	conversion.c
 	buffer.c
 	memory.c
+	string.c
 	unicode.c
-	string.c)
-
-if (NOT WITH_ICU)
-	set (CRT_FILES ${CRT_FILES}
-		utf.c
-		utf.h)
-endif(NOT WITH_ICU)
-
-if (WITH_ICU)
-	find_package(ICU REQUIRED i18n uc io)
-	include_directories(${ICU_INCLUDE_DIRS})
-	winpr_library_add(${ICU_LIBRARIES})
-endif (WITH_ICU)
-
-winpr_module_add(${CRT_FILES})
+	utf.c
+	utf.h)
 
 if(BUILD_TESTING)
 	add_subdirectory(test)

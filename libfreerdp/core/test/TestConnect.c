@@ -9,23 +9,21 @@ static HANDLE s_sync = NULL;
 static int runInstance(int argc, char* argv[], freerdp** inst)
 {
 	int rc = -1;
-	RDP_CLIENT_ENTRY_POINTS clientEntryPoints;
-	ZeroMemory(&clientEntryPoints, sizeof(RDP_CLIENT_ENTRY_POINTS));
-	clientEntryPoints.Size = sizeof(RDP_CLIENT_ENTRY_POINTS);
-	clientEntryPoints.Version = RDP_CLIENT_INTERFACE_VERSION;
-	clientEntryPoints.ContextSize = sizeof(rdpContext);
-	rdpContext* context = freerdp_client_context_new(&clientEntryPoints);
+	freerdp* instance = freerdp_new();
 
-	if (!context)
+	if (!instance)
 		goto finish;
 
 	if (inst)
-		*inst = context->instance;
+		*inst = instance;
 
-	if (freerdp_client_settings_parse_command_line(context->settings, argc, argv, FALSE) < 0)
+	if (!freerdp_context_new(instance))
 		goto finish;
 
-	if (!freerdp_client_load_addins(context->channels, context->settings))
+	if (freerdp_client_settings_parse_command_line(instance->settings, argc, argv, FALSE) < 0)
+		goto finish;
+
+	if (!freerdp_client_load_addins(instance->context->channels, instance->settings))
 		goto finish;
 
 	if (s_sync)
@@ -36,17 +34,18 @@ static int runInstance(int argc, char* argv[], freerdp** inst)
 
 	rc = 1;
 
-	if (!freerdp_connect(context->instance))
+	if (!freerdp_connect(instance))
 		goto finish;
 
 	rc = 2;
 
-	if (!freerdp_disconnect(context->instance))
+	if (!freerdp_disconnect(instance))
 		goto finish;
 
 	rc = 0;
 finish:
-	freerdp_client_context_free(context);
+	freerdp_context_free(instance);
+	freerdp_free(instance);
 	return rc;
 }
 
@@ -136,7 +135,6 @@ static int testAbort(int port)
 	}
 
 	WaitForSingleObject(s_sync, INFINITE);
-	Sleep(1000); /* Wait until freerdp_connect has been called */
 	freerdp_abort_connect(instance);
 	status = WaitForSingleObject(instance->context->abortEvent, 0);
 
@@ -155,11 +153,8 @@ static int testAbort(int port)
 	s_sync = NULL;
 	diff = end - start;
 
-	if (diff > 5000)
-	{
-		printf("%s required %"PRIu32"ms for the test\n", __FUNCTION__, diff);
+	if (diff > 1000)
 		return -1;
-	}
 
 	if (WAIT_OBJECT_0 != status)
 		return -1;
@@ -232,7 +227,7 @@ static int testSuccess(int port)
 	}
 
 	// Start sample server locally.
-	commandLineLen = strlen(exe) + strlen("--local-only --port=XXXXX") + 1;
+	commandLineLen = strlen(exe) + strlen(" --port=XXXXX") + 1;
 	commandLine = malloc(commandLineLen);
 
 	if (!commandLine)
@@ -243,7 +238,7 @@ static int testSuccess(int port)
 		return -2;
 	}
 
-	_snprintf(commandLine, commandLineLen, "%s --local-only --port=%d", exe, port);
+	_snprintf(commandLine, commandLineLen, "%s --port=%d", exe, port);
 	memset(&si, 0, sizeof(si));
 	si.cb = sizeof(si);
 

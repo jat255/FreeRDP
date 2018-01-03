@@ -584,7 +584,7 @@ static UINT rdpgfx_write_surface_command(wStream* s,
 			break;
 
 		default:
-			WLog_ERR(TAG, "Format %s not supported!", FreeRDPGetColorFormatName(cmd->format));
+			WLog_ERR(TAG, "Format %s not supported!", GetColorFormatName(cmd->format));
 			return ERROR_INVALID_DATA;
 	}
 
@@ -626,8 +626,9 @@ static UINT rdpgfx_write_surface_command(wStream* s,
 		else if (cmd->codecId == RDPGFX_CODECID_AVC444)
 		{
 			havc444 = (RDPGFX_AVC444_BITMAP_STREAM*)cmd->extra;
-			havc420 = &(havc444->bitstream[0]);			/* avc420EncodedBitstreamInfo (4 bytes) */
-			Stream_Write_UINT32(s, havc444->cbAvc420EncodedBitstream1 | (havc444->LC << 30UL));
+			havc420 = &(havc444->bitstream[0]);
+			/* avc420EncodedBitstreamInfo (4 bytes) */
+			Stream_Write_UINT32(s, havc420->length | (havc444->LC << 30UL));
 			/* avc420EncodedBitstream1 */
 			error = rdpgfx_write_h264_avc420(s, havc420);
 
@@ -640,7 +641,7 @@ static UINT rdpgfx_write_surface_command(wStream* s,
 			/* avc420EncodedBitstream2 */
 			if (havc444->LC == 0)
 			{
-				havc420 = &(havc444->bitstream[1]);
+				havc420 = &(havc444->bitstream[0]);
 				error = rdpgfx_write_h264_avc420(s, havc420);
 
 				if (error != CHANNEL_RC_OK)
@@ -1252,7 +1253,7 @@ static UINT rdpgfx_recv_qoe_frame_acknowledge_pdu(RdpgfxServerContext* context,
  */
 static UINT rdpgfx_server_receive_pdu(RdpgfxServerContext* context, wStream* s)
 {
-	size_t beg, end;
+	int beg, end;
 	RDPGFX_HEADER header;
 	UINT error = CHANNEL_RC_OK;
 	beg = Stream_GetPosition(s);

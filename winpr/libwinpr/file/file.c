@@ -23,12 +23,6 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
-#if defined(__FreeBSD_kernel__) && defined(__GLIBC__)
-#define _GNU_SOURCE
-#define KFREEBSD
-#endif
-
-#include <winpr/wtypes.h>
 #include <winpr/crt.h>
 #include <winpr/file.h>
 
@@ -105,12 +99,12 @@ static BOOL FileCloseHandle(HANDLE handle) {
 static BOOL FileSetEndOfFile(HANDLE hFile)
 {
 	WINPR_FILE* pFile = (WINPR_FILE*) hFile;
-	INT64 size;
+	off_t size;
 
 	if (!hFile)
 		return FALSE;
 
-	size = _ftelli64(pFile->fp);
+	size = ftell(pFile->fp);
 
 	if (ftruncate(fileno(pFile->fp), size) < 0)
 	{
@@ -128,20 +122,11 @@ static DWORD FileSetFilePointer(HANDLE hFile, LONG lDistanceToMove,
 			PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod)
 {
 	WINPR_FILE* pFile = (WINPR_FILE*) hFile;
-	INT64 offset;
+	long offset = lDistanceToMove;
 	int whence;
 
 	if (!hFile)
 		return INVALID_SET_FILE_POINTER;
-
-	/* If there is a high part, the sign is contained in that
-	 * and the low integer must be interpreted as unsigned. */
-	if (lpDistanceToMoveHigh)
-	{
-		offset = (INT64)(((UINT64)*lpDistanceToMoveHigh << 32U) | (UINT64)lDistanceToMove);
-	}
-	else
-		 offset = lDistanceToMove;
 
 	switch(dwMoveMethod)
 	{
@@ -158,50 +143,14 @@ static DWORD FileSetFilePointer(HANDLE hFile, LONG lDistanceToMove,
 		return INVALID_SET_FILE_POINTER;
 	}
 
-	if (_fseeki64(pFile->fp, offset, whence))
+	if (fseek(pFile->fp, offset, whence))
 	{
-		WLog_ERR(TAG, "_fseeki64(%s) failed with %s [0x%08X]", pFile->lpFileName,
+		WLog_ERR(TAG, "fseek(%s) failed with %s [0x%08X]", pFile->lpFileName,
 			 strerror(errno), errno);
 		return INVALID_SET_FILE_POINTER;
 	}
 
-	return _ftelli64(pFile->fp);
-}
-
-static BOOL FileSetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove, PLARGE_INTEGER lpNewFilePointer, DWORD dwMoveMethod)
-{
-	WINPR_FILE* pFile = (WINPR_FILE*) hFile;
-	int whence;
-
-	if (!hFile)
-		return FALSE;
-
-	switch(dwMoveMethod)
-	{
-	case FILE_BEGIN:
-		whence = SEEK_SET;
-		break;
-	case FILE_END:
-		whence = SEEK_END;
-		break;
-	case FILE_CURRENT:
-		whence = SEEK_CUR;
-		break;
-	default:
-		return FALSE;
-	}
-
-	if (_fseeki64(pFile->fp, liDistanceToMove.QuadPart, whence))
-	{
-		WLog_ERR(TAG, "_fseeki64(%s) failed with %s [0x%08X]", pFile->lpFileName,
-			 strerror(errno), errno);
-		return FALSE;
-	}
-
-	if (lpNewFilePointer)
-		lpNewFilePointer->QuadPart = _ftelli64(pFile->fp);
-
-	return TRUE;
+	return ftell(pFile->fp);
 }
 
 static BOOL FileRead(PVOID Object, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
@@ -278,41 +227,41 @@ static BOOL FileWrite(PVOID Object, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrit
 static DWORD FileGetFileSize(HANDLE Object, LPDWORD lpFileSizeHigh)
 {
 	WINPR_FILE* file;
-	INT64 cur, size;
+	long cur, size;
 
 	if (!Object)
 		return 0;
 
 	file = (WINPR_FILE *)Object;
 
-	cur = _ftelli64(file->fp);
+	cur = ftell(file->fp);
 
 	if (cur < 0)
 	{
-		WLog_ERR(TAG, "_ftelli64(%s) failed with %s [0x%08X]", file->lpFileName,
+		WLog_ERR(TAG, "ftell(%s) failed with %s [0x%08X]", file->lpFileName,
 			 strerror(errno), errno);
 		return INVALID_FILE_SIZE;
 	}
 
-	if (_fseeki64(file->fp, 0, SEEK_END) != 0)
+	if (fseek(file->fp, 0, SEEK_END) != 0)
 	{
-		WLog_ERR(TAG, "_fseeki64(%s) failed with %s [0x%08X]", file->lpFileName,
+		WLog_ERR(TAG, "fseek(%s) failed with %s [0x%08X]", file->lpFileName,
 			 strerror(errno), errno);
 		return INVALID_FILE_SIZE;
 	}
 
-	size = _ftelli64(file->fp);
+	size = ftell(file->fp);
 
 	if (size < 0)
 	{
-		WLog_ERR(TAG, "_ftelli64(%s) failed with %s [0x%08X]", file->lpFileName,
+		WLog_ERR(TAG, "ftell(%s) failed with %s [0x%08X]", file->lpFileName,
 			 strerror(errno), errno);
 		return INVALID_FILE_SIZE;
 	}
 
-	if (_fseeki64(file->fp, cur, SEEK_SET) != 0)
+	if (fseek(file->fp, cur, SEEK_SET) != 0)
 	{
-		WLog_ERR(TAG, "_ftelli64(%s) failed with %s [0x%08X]", file->lpFileName,
+		WLog_ERR(TAG, "ftell(%s) failed with %s [0x%08X]", file->lpFileName,
 			 strerror(errno), errno);
 		return INVALID_FILE_SIZE;
 	}
@@ -327,12 +276,7 @@ static BOOL FileLockFileEx(HANDLE hFile, DWORD dwFlags, DWORD dwReserved,
 		DWORD nNumberOfBytesToLockLow, DWORD nNumberOfBytesToLockHigh,
 		LPOVERLAPPED lpOverlapped)
  {
-#ifdef __sun
-	struct flock lock;
-	int lckcmd;
-#else
 	int lock;
-#endif
 	WINPR_FILE* pFile = (WINPR_FILE*)hFile;
 
 	if (lpOverlapped)
@@ -351,27 +295,6 @@ static BOOL FileLockFileEx(HANDLE hFile, DWORD dwFlags, DWORD dwReserved,
 		return FALSE;
 	}
 
-#ifdef __sun
-	lock.l_start = 0;
-	lock.l_len = 0;
-	lock.l_whence = SEEK_SET;
-
-	if (dwFlags & LOCKFILE_EXCLUSIVE_LOCK)
-		lock.l_type = F_WRLCK;
-	else
-		lock.l_type = F_WRLCK;
-
-	if (dwFlags & LOCKFILE_FAIL_IMMEDIATELY)
-		lckcmd = F_SETLK;
-	else
-		lckcmd = F_SETLKW;
-
-	if(fcntl(fileno(pFile->fp), lckcmd, &lock) == -1) {
-		WLog_ERR(TAG, "F_SETLK failed with %s [0x%08X]",
-			 strerror(errno), errno);
-		return FALSE;
-	}
-#else
 	if (dwFlags & LOCKFILE_EXCLUSIVE_LOCK)
 		lock = LOCK_EX;
 	else
@@ -386,7 +309,6 @@ static BOOL FileLockFileEx(HANDLE hFile, DWORD dwFlags, DWORD dwReserved,
 			 strerror(errno), errno);
 		return FALSE;
 	}
-#endif
 
 	pFile->bLocked = TRUE;
 
@@ -397,9 +319,6 @@ static BOOL FileUnlockFile(HANDLE hFile, DWORD dwFileOffsetLow, DWORD dwFileOffs
 				DWORD nNumberOfBytesToUnlockLow, DWORD nNumberOfBytesToUnlockHigh)
 {
 	WINPR_FILE* pFile = (WINPR_FILE*)hFile;
-#ifdef __sun
-	struct flock lock;
-#endif
 
 	if (!hFile)
 		return FALSE;
@@ -410,26 +329,12 @@ static BOOL FileUnlockFile(HANDLE hFile, DWORD dwFileOffsetLow, DWORD dwFileOffs
 		return FALSE;
 	}
 
-#ifdef __sun
-	lock.l_start = 0;
-	lock.l_len = 0;
-	lock.l_whence = SEEK_SET;
-	lock.l_type = F_UNLCK;
-	if (fcntl(fileno(pFile->fp), F_GETLK, &lock) == -1)
-	{
-		WLog_ERR(TAG, "F_UNLCK on %s failed with %s [0x%08X]",
-			 pFile->lpFileName, strerror(errno), errno);
-		return FALSE;
-	}
-
-#else
 	if (flock(fileno(pFile->fp), LOCK_UN) < 0)
 	{
 		WLog_ERR(TAG, "flock(LOCK_UN) %s failed with %s [0x%08X]",
 			 pFile->lpFileName, strerror(errno), errno);
 		return FALSE;
 	}
-#endif
 
 	return TRUE;
 }
@@ -438,9 +343,6 @@ static BOOL FileUnlockFileEx(HANDLE hFile, DWORD dwReserved, DWORD nNumberOfByte
 				  DWORD nNumberOfBytesToUnlockHigh, LPOVERLAPPED lpOverlapped)
 {
 	WINPR_FILE* pFile = (WINPR_FILE*)hFile;
-#ifdef __sun
-	struct flock lock;
-#endif
 
 	if (lpOverlapped)
 	{
@@ -458,25 +360,12 @@ static BOOL FileUnlockFileEx(HANDLE hFile, DWORD dwReserved, DWORD nNumberOfByte
 		return FALSE;
 	}
 
-#ifdef __sun
-	lock.l_start = 0;
-	lock.l_len = 0;
-	lock.l_whence = SEEK_SET;
-	lock.l_type = F_UNLCK;
-	if (fcntl(fileno(pFile->fp), F_GETLK, &lock) == -1)
-	{
-		WLog_ERR(TAG, "F_UNLCK on %s failed with %s [0x%08X]",
-			 pFile->lpFileName, strerror(errno), errno);
-		return FALSE;
-	}
-#else
 	if (flock(fileno(pFile->fp), LOCK_UN) < 0)
 	{
 		WLog_ERR(TAG, "flock(LOCK_UN) %s failed with %s [0x%08X]",
 			 pFile->lpFileName, strerror(errno), errno);
 		return FALSE;
 	}
-#endif
 
 	return TRUE;
 }
@@ -495,7 +384,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
                             const FILETIME* lpLastAccessTime, const FILETIME* lpLastWriteTime)
 {
 	int rc;
-#if defined(__APPLE__) || defined(ANDROID) || defined(__FreeBSD__) || defined(KFREEBSD)
+#if defined(__APPLE__) || defined(ANDROID) || defined(__FreeBSD__)
 	struct stat buf;
 	/* OpenBSD, NetBSD and DragonflyBSD support POSIX futimens */
 	struct timeval timevals[2];
@@ -507,7 +396,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 	if (!hFile)
 		return FALSE;
 
-#if defined(__APPLE__) || defined(ANDROID) || defined(__FreeBSD__) || defined(KFREEBSD)
+#if defined(__APPLE__) || defined(ANDROID) || defined(__FreeBSD__)
 	rc = fstat(fileno(pFile->fp), &buf);
 
 	if (rc < 0)
@@ -517,7 +406,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 
 	if (!lpLastAccessTime)
 	{
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(KFREEBSD)
+#if defined(__FreeBSD__) || defined(__APPLE__)
 		timevals[0].tv_sec = buf.st_atime;
 #ifdef _POSIX_SOURCE
 		TIMESPEC_TO_TIMEVAL(&timevals[0], &buf.st_atim);
@@ -535,7 +424,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 	else
 	{
 		UINT64 tmp = FileTimeToUS(lpLastAccessTime);
-#if defined(ANDROID) || defined(__FreeBSD__) || defined(__APPLE__) || defined(KFREEBSD)
+#if defined(ANDROID) || defined(__FreeBSD__) || defined(__APPLE__)
 		timevals[0].tv_sec = tmp / 1000000ULL;
 		timevals[0].tv_usec = tmp % 1000000ULL;
 #else
@@ -546,7 +435,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 
 	if (!lpLastWriteTime)
 	{
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(KFREEBSD)
+#if defined(__FreeBSD__) || defined(__APPLE__)
 		timevals[1].tv_sec = buf.st_mtime;
 #ifdef _POSIX_SOURCE
 		TIMESPEC_TO_TIMEVAL(&timevals[1], &buf.st_mtim);
@@ -564,7 +453,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 	else
 	{
 		UINT64 tmp = FileTimeToUS(lpLastWriteTime);
-#if defined(ANDROID) || defined(__FreeBSD__) || defined(__APPLE__) || defined(KFREEBSD)
+#if defined(ANDROID) || defined(__FreeBSD__) || defined(__APPLE__)
 		timevals[1].tv_sec = tmp / 1000000ULL;
 		timevals[1].tv_usec = tmp % 1000000ULL;
 #else
@@ -574,7 +463,7 @@ static BOOL FileSetFileTime(HANDLE hFile, const FILETIME* lpCreationTime,
 	}
 
 	// TODO: Creation time can not be handled!
-#if defined(ANDROID) || defined(__FreeBSD__) || defined(__APPLE__) || defined(KFREEBSD)
+#if defined(ANDROID) || defined(__FreeBSD__) || defined(__APPLE__)
 	rc = utimes(pFile->lpFileName, timevals);
 #else
 	rc = futimens(fileno(pFile->fp), times);
@@ -601,7 +490,7 @@ static HANDLE_OPS fileOps = {
 	NULL, /*  FlushFileBuffers */
 	FileSetEndOfFile,
 	FileSetFilePointer,
-	FileSetFilePointerEx,
+	NULL, /* SetFilePointerEx */
 	NULL, /* FileLockFile */
 	FileLockFileEx,
 	FileUnlockFile,
@@ -635,7 +524,7 @@ static HANDLE_OPS shmOps = {
 
 static const char* FileGetMode(DWORD dwDesiredAccess, DWORD dwCreationDisposition, BOOL* create)
 {
-	BOOL writeable = (dwDesiredAccess & (GENERIC_WRITE |  FILE_WRITE_DATA | FILE_APPEND_DATA)) != 0;
+	BOOL writeable = (dwDesiredAccess & (GENERIC_WRITE | STANDARD_RIGHTS_WRITE | FILE_WRITE_DATA | FILE_APPEND_DATA)) != 0;
 
 	switch(dwCreationDisposition)
 	{
@@ -672,14 +561,6 @@ UINT32 map_posix_err(int fs_errno)
 			rc = STATUS_SUCCESS;
 			break;
 
-		case ENOTCONN:
-		case ENODEV:
-		case ENOTDIR:
-		case ENXIO:
-			rc = ERROR_FILE_NOT_FOUND;
-			break;
-
-		case EROFS:
 		case EPERM:
 		case EACCES:
 			rc = ERROR_ACCESS_DENIED;
@@ -706,8 +587,6 @@ UINT32 map_posix_err(int fs_errno)
 			break;
 
 		default:
-			WLog_ERR(TAG, "Missing ERRNO mapping %s [%d]",
-			         strerror(fs_errno), fs_errno);
 			rc = STATUS_UNSUCCESSFUL;
 			break;
 	}
@@ -721,11 +600,7 @@ static HANDLE FileCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dw
 	WINPR_FILE* pFile;
 	BOOL create;
 	const char* mode = FileGetMode(dwDesiredAccess, dwCreationDisposition, &create);
-#ifdef __sun
-	struct flock lock;
-#else
 	int lock = 0;
-#endif
 	FILE* fp = NULL;
 	struct stat st;
 
@@ -785,27 +660,6 @@ static HANDLE FileCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dw
 
 		fp = freopen(pFile->lpFileName, mode, fp);
 	}
-	else
-	{
-		if (stat(pFile->lpFileName, &st) != 0)
-		{
-			SetLastError(map_posix_err(errno));
-			free(pFile->lpFileName);
-			free(pFile);
-			return INVALID_HANDLE_VALUE;
-		}
-
-		/* FIFO (named pipe) would block the following fopen
-		 * call if not connected. This renders the channel unusable,
-		 * therefore abort early. */
-		if (S_ISFIFO(st.st_mode))
-		{
-			SetLastError(ERROR_FILE_NOT_FOUND);
-			free(pFile->lpFileName);
-			free(pFile);
-			return INVALID_HANDLE_VALUE;
-		}
-	}
 
 	if (NULL == fp)
 		fp = fopen(pFile->lpFileName, mode);
@@ -823,35 +677,16 @@ static HANDLE FileCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dw
 
 	setvbuf(fp, NULL, _IONBF, 0);
 
-#ifdef __sun
-	lock.l_start = 0;
-	lock.l_len = 0;
-	lock.l_whence = SEEK_SET;
-
-	if (dwShareMode & FILE_SHARE_READ)
-		lock.l_type = F_RDLCK;
-	if (dwShareMode & FILE_SHARE_WRITE)
-		lock.l_type = F_RDLCK;
-#else
 	if (dwShareMode & FILE_SHARE_READ)
 		lock = LOCK_SH;
 	if (dwShareMode & FILE_SHARE_WRITE)
 		lock = LOCK_EX;
-#endif
 
 	if (dwShareMode & (FILE_SHARE_READ | FILE_SHARE_WRITE))
 	{
-#ifdef __sun
-		if (fcntl(fileno(pFile->fp), F_SETLKW, &lock) == -1)
-#else
 		if (flock(fileno(pFile->fp), lock) < 0)
-#endif
 		{
-#ifdef __sun
-			WLog_ERR(TAG, "F_SETLKW failed with %s [0x%08X]",
-#else
 			WLog_ERR(TAG, "flock failed with %s [0x%08X]",
-#endif
 				 strerror(errno), errno);
 			SetLastError(map_posix_err(errno));
 			FileCloseHandle(pFile);

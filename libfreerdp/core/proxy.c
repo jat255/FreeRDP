@@ -18,7 +18,6 @@
  */
 
 #include <ctype.h>
-#include <errno.h>
 
 #include "proxy.h"
 #include "freerdp/settings.h"
@@ -110,14 +109,13 @@ BOOL proxy_parse_uri(rdpSettings* settings, const char* uri)
 
 	if (pport)
 	{
-		long val;
-		errno = 0;
-		val = strtol(pport + 1, NULL, 0);
-
-		if ((errno != 0) || (val <= 0) || (val > UINT16_MAX))
+		if (!isdigit(*(pport + 1)))
+		{
+			WLog_ERR(TAG, "Could not parse proxy port");
 			return FALSE;
+		}
 
-		port = val;
+		port = atoi(pport + 1);
 	}
 	else
 	{

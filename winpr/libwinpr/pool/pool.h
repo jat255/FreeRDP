@@ -64,15 +64,10 @@ struct _TP_IO
 
 struct _TP_CLEANUP_GROUP
 {
-#ifndef _WIN32
-	wArrayList* groups;
-	PTP_CALLBACK_ENVIRON env;
-#else
 	void* dummy;
-#endif
 };
 
-PTP_POOL GetDefaultThreadpool(void);
+PTP_POOL GetDefaultThreadpool();
 
 #endif /* WINPR_POOL_PRIVATE_H */
 

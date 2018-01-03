@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include <winpr/crt.h>
 
@@ -211,8 +210,8 @@ int freerdp_get_solaris_keyboard_layout_and_type(int* type, int* layout)
 	char* pch;
 	char* beg;
 	char* end;
-	int rc = -1;
 	char buffer[1024];
+
 	/*
 		Sample output for "kbd -t -l" :
 
@@ -222,8 +221,10 @@ int freerdp_get_solaris_keyboard_layout_and_type(int* type, int* layout)
 		delay(ms)=500
 		rate(ms)=40
 	*/
+
 	*type = 0;
 	*layout = 0;
+
 	kbd = popen("kbd -t -l", "r");
 
 	if (!kbd)
@@ -231,40 +232,25 @@ int freerdp_get_solaris_keyboard_layout_and_type(int* type, int* layout)
 
 	while (fgets(buffer, sizeof(buffer), kbd) != NULL)
 	{
-		long val;
-
 		if ((pch = strstr(buffer, "type=")) != NULL)
 		{
 			beg = pch + sizeof("type=") - 1;
 			end = strchr(beg, '\n');
 			end[0] = '\0';
-			errno = 0;
-			val = strtol(beg, NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				goto fail;
-
-			*type = val;
+			*type = atoi(beg);
 		}
 		else if ((pch = strstr(buffer, "layout=")) != NULL)
 		{
 			beg = pch + sizeof("layout=") - 1;
 			end = strchr(beg, ' ');
 			end[0] = '\0';
-			errno = 0;
-			val = strtol(beg, NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				goto fail;
-
-			*layout = val;
+			*layout = atoi(beg);
 		}
 	}
 
-	rc = 0;
-fail:
 	pclose(kbd);
-	return rc;
+
+	return 0;
 }
 
 DWORD freerdp_detect_solaris_keyboard_layout()

@@ -557,7 +557,7 @@ BOOL rdp_send_pdu(rdpRdp* rdp, wStream* s, UINT16 type, UINT16 channel_id)
 {
 	UINT16 length;
 	UINT32 sec_bytes;
-	size_t sec_hold;
+	int sec_hold;
 	UINT32 pad;
 
 	length = Stream_GetPosition(s);
@@ -584,9 +584,9 @@ BOOL rdp_send_pdu(rdpRdp* rdp, wStream* s, UINT16 type, UINT16 channel_id)
 
 BOOL rdp_send_data_pdu(rdpRdp* rdp, wStream* s, BYTE type, UINT16 channel_id)
 {
-	size_t length;
+	UINT16 length;
 	UINT32 sec_bytes;
-	size_t sec_hold;
+	int sec_hold;
 	UINT32 pad;
 
 	length = Stream_GetPosition(s);
@@ -604,8 +604,6 @@ BOOL rdp_send_data_pdu(rdpRdp* rdp, wStream* s, BYTE type, UINT16 channel_id)
 	Stream_SetPosition(s, length);
 	Stream_SealLength(s);
 
-	WLog_DBG(TAG, "%s: sending data (type=0x%x size=%"PRIuz" channelId=%"PRIu16")", __FUNCTION__,
-			type, Stream_Length(s), channel_id);
 	if (transport_write(rdp->transport, s) < 0)
 		return FALSE;
 
@@ -615,11 +613,17 @@ BOOL rdp_send_data_pdu(rdpRdp* rdp, wStream* s, BYTE type, UINT16 channel_id)
 BOOL rdp_send_message_channel_pdu(rdpRdp* rdp, wStream* s, UINT16 sec_flags)
 {
 	UINT16 length;
+	UINT32 sec_bytes;
+	int sec_hold;
 	UINT32 pad;
 
 	length = Stream_GetPosition(s);
 	Stream_SetPosition(s, 0);
 	rdp_write_header(rdp, s, length, rdp->mcs->messageChannelId);
+	sec_bytes = rdp_get_sec_bytes(rdp, sec_flags);
+	sec_hold = Stream_GetPosition(s);
+	Stream_Seek(s, sec_bytes);
+	Stream_SetPosition(s, sec_hold);
 
 	if (!rdp_security_stream_out(rdp, s, length, sec_flags, &pad))
 		return FALSE;
@@ -1134,7 +1138,7 @@ static int rdp_recv_tpkt_pdu(rdpRdp* rdp, wStream* s)
 	UINT16 pduSource;
 	UINT16 channelId = 0;
 	UINT16 securityFlags = 0;
-	size_t nextPosition;
+	int nextPosition;
 
 	if (!rdp_read_header(rdp, s, &length, &channelId))
 	{
@@ -1220,7 +1224,6 @@ static int rdp_recv_tpkt_pdu(rdpRdp* rdp, wStream* s)
 				case PDU_TYPE_FLOW_RESPONSE:
 				case PDU_TYPE_FLOW_STOP:
 				case PDU_TYPE_FLOW_TEST:
-					WLog_DBG(TAG, "flow message 0x%04"PRIX16"", pduType);
 					break;
 
 				default:
@@ -1432,15 +1435,7 @@ int rdp_recv_callback(rdpTransport* transport, wStream* s, void* extra)
 
 			if ((status >= 0) && (rdp->finalize_sc_pdus == FINALIZE_SC_COMPLETE))
 			{
-				ActivatedEventArgs activatedEvent;
-				rdpContext *context = rdp->context;
-
 				rdp_client_transition_to_state(rdp, CONNECTION_STATE_ACTIVE);
-
-				EventArgsInit(&activatedEvent, "xfreerdp");
-				activatedEvent.firstActivation = !rdp->deactivation_reactivation;
-				PubSub_OnActivated(context->pubSub, context, &activatedEvent);
-
 				return 2;
 			}
 			if (status < 0)

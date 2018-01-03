@@ -84,7 +84,7 @@ void PubSub_AddEventTypes(wPubSub* pubSub, wEventType* events, int count)
 		wEventType *new_event;
 
 		new_size = pubSub->size * 2;
-		new_event = (wEventType*) realloc(pubSub->events, new_size * sizeof(wEventType));
+		new_event = (wEventType*) realloc(pubSub->events, new_size);
 		if (!new_event)
 			return;
 		pubSub->size = new_size;
@@ -151,7 +151,7 @@ int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName, pEventHandler Eve
 				event->EventHandlers[index] = NULL;
 				event->EventHandlerCount--;
 				MoveMemory(&event->EventHandlers[index], &event->EventHandlers[index + 1],
-				        (MAX_EVENT_HANDLERS - index - 1) * sizeof(pEventHandler));
+						(MAX_EVENT_HANDLERS - index - 1) * sizeof(pEventHandler));
 				status = 1;
 			}
 		}

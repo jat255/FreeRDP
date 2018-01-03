@@ -115,7 +115,7 @@ static BOOL tsmf_pulse_open(ITSMFAudioDevice *audio, const char *device)
 	TSMFPulseAudioDevice *pulse = (TSMFPulseAudioDevice *) audio;
 	if(device)
 	{
-		strncpy(pulse->device, device, sizeof(pulse->device) - 1);
+		strcpy(pulse->device, device);
 	}
 	pulse->mainloop = pa_threaded_mainloop_new();
 	if(!pulse->mainloop)

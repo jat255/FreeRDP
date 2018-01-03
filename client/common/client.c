@@ -39,13 +39,13 @@
 static BOOL freerdp_client_common_new(freerdp* instance, rdpContext* context)
 {
 	RDP_CLIENT_ENTRY_POINTS* pEntryPoints = instance->pClientEntryPoints;
-	return IFCALLRESULT(TRUE, pEntryPoints->ClientNew, instance, context);
+	return pEntryPoints->ClientNew(instance, context);
 }
 
 static void freerdp_client_common_free(freerdp* instance, rdpContext* context)
 {
 	RDP_CLIENT_ENTRY_POINTS* pEntryPoints = instance->pClientEntryPoints;
-	IFCALL(pEntryPoints->ClientFree, instance, context);
+	pEntryPoints->ClientFree(instance, context);
 }
 
 /* Common API */
@@ -501,7 +501,7 @@ DWORD client_cli_verify_certificate(freerdp* instance, const char* common_name,
 	printf("\tThumbprint: %s\n", fingerprint);
 	printf("The above X.509 certificate could not be verified, possibly because you do not have\n"
 	       "the CA certificate in your certificate store, or the certificate has expired.\n"
-	       "Please look at the OpenSSL documentation on how to add a private CA to the store.\n");
+	       "Please look at the documentation on how to create local certificate store for a private CA.\n");
 	return client_cli_accept_certificate(instance->settings);
 }
 

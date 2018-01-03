@@ -24,7 +24,6 @@
 #include "config.h"
 #endif
 
-#include <errno.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -764,7 +763,6 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 		return FALSE;
 
 	arg = audin_args;
-	errno = 0;
 
 	do
 	{
@@ -790,28 +788,15 @@ BOOL audin_process_addin_args(AUDIN_PLUGIN* audin, ADDIN_ARGV* args)
 		}
 		CommandLineSwitchCase(arg, "format")
 		{
-			unsigned long val = strtoul(arg->Value, NULL, 0);
-
-			if ((errno != 0) || (val > UINT16_MAX))
-				return FALSE;
-
-			audin->fixed_format = val;
+			audin->fixed_format = atoi(arg->Value);
 		}
 		CommandLineSwitchCase(arg, "rate")
 		{
-			long val = strtol(arg->Value, NULL, 0);
-
-			if ((errno != 0) || (val < INT32_MIN) || (val > INT32_MAX))
-				return FALSE;
-
-			audin->fixed_rate = val;
+			audin->fixed_rate = atoi(arg->Value);
 		}
 		CommandLineSwitchCase(arg, "channel")
 		{
-			unsigned long val = strtoul(arg->Value, NULL, 0);
-
-			if ((errno != 0) || (val > UINT16_MAX))
-				audin->fixed_channel = val;
+			audin->fixed_channel = atoi(arg->Value);
 		}
 		CommandLineSwitchDefault(arg)
 		{

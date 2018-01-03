@@ -14,12 +14,11 @@
 
 static int test_gdi_ClipCoords(void)
 {
-	int rc = -1;
 	BOOL draw;
 	HGDI_DC hdc;
-	HGDI_RGN rgn1 = NULL;
-	HGDI_RGN rgn2 = NULL;
-	HGDI_BITMAP bmp = NULL;
+	HGDI_RGN rgn1;
+	HGDI_RGN rgn2;
+	HGDI_BITMAP bmp;
 	const UINT32 format = PIXEL_FORMAT_ARGB32;
 
 	if (!(hdc = gdi_GetDC()))
@@ -43,7 +42,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* region all inside clipping region */
 	gdi_SetClipRgn(hdc, 0, 0, 1024, 768);
@@ -52,7 +51,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* region all outside clipping region, on the left */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -62,7 +61,7 @@ static int test_gdi_ClipCoords(void)
 	                      NULL);
 
 	if (draw)
-		goto fail;
+		return -1;
 
 	/* region all outside clipping region, on the right */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -72,7 +71,7 @@ static int test_gdi_ClipCoords(void)
 	                      NULL);
 
 	if (draw)
-		goto fail;
+		return -1;
 
 	/* region all outside clipping region, on top */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -82,7 +81,7 @@ static int test_gdi_ClipCoords(void)
 	                      NULL);
 
 	if (draw)
-		goto fail;
+		return -1;
 
 	/* region all outside clipping region, at the bottom */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -92,7 +91,7 @@ static int test_gdi_ClipCoords(void)
 	                      NULL);
 
 	if (draw)
-		goto fail;
+		return -1;
 
 	/* left outside, right = clip, top = clip, bottom = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -101,7 +100,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* left outside, right inside, top = clip, bottom = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -110,7 +109,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* left = clip, right outside, top = clip, bottom = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -119,7 +118,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* left inside, right outside, top = clip, bottom = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -128,7 +127,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* top outside, bottom = clip, left = clip, right = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -137,7 +136,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* top = clip, bottom outside, left = clip, right = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -146,7 +145,7 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
 	/* top = clip, bottom = clip, top = clip, bottom = clip */
 	gdi_SetClipRgn(hdc, 300, 300, 100, 100);
@@ -155,27 +154,18 @@ static int test_gdi_ClipCoords(void)
 	gdi_ClipCoords(hdc, &(rgn1->x), &(rgn1->y), &(rgn1->w), &(rgn1->h), NULL, NULL);
 
 	if (!gdi_EqualRgn(rgn1, rgn2))
-		goto fail;
+		return -1;
 
-	rc = 0;
-fail:
-
-	gdi_DeleteObject((HGDIOBJECT)rgn1);
-	gdi_DeleteObject((HGDIOBJECT)rgn2);
-	gdi_DeleteObject((HGDIOBJECT)bmp);
-
-	gdi_DeleteDC(hdc);
-	return rc;
+	return 0;
 }
 
 static int test_gdi_InvalidateRegion(void)
 {
-	int rc = -1;
 	HGDI_DC hdc;
-	HGDI_RGN rgn1 = NULL;
-	HGDI_RGN rgn2 = NULL;
-	HGDI_RGN invalid = NULL;
-	HGDI_BITMAP bmp = NULL;
+	HGDI_RGN rgn1;
+	HGDI_RGN rgn2;
+	HGDI_RGN invalid;
+	HGDI_BITMAP bmp;
 	const UINT32 format = PIXEL_FORMAT_XRGB32;
 
 	if (!(hdc = gdi_GetDC()))
@@ -205,7 +195,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* region same as invalid region */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -214,7 +204,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* left outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -223,7 +213,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* right outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -232,7 +222,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* top outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -241,7 +231,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* bottom outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -250,7 +240,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* left outside, right outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -259,7 +249,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* top outside, bottom outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -268,7 +258,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* all outside, left */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -277,7 +267,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* all outside, right */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -286,7 +276,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* all outside, top */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -295,7 +285,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* all outside, bottom */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -304,7 +294,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* all outside */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -313,7 +303,7 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
 	/* everything */
 	gdi_SetRgn(invalid, 300, 300, 100, 100);
@@ -322,16 +312,8 @@ static int test_gdi_InvalidateRegion(void)
 	gdi_InvalidateRegion(hdc, rgn1->x, rgn1->y, rgn1->w, rgn1->h);
 
 	if (!gdi_EqualRgn(invalid, rgn2))
-		goto fail;
+		return -1;
 
-	rc = 0;
-fail:
-
-	gdi_DeleteObject((HGDIOBJECT)rgn1);
-	gdi_DeleteObject((HGDIOBJECT)rgn2);
-	gdi_DeleteObject((HGDIOBJECT)bmp);
-
-	gdi_DeleteDC(hdc);
 	return 0;
 }
 

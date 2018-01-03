@@ -30,7 +30,6 @@
 #include "xf_rail.h"
 #include "xf_window.h"
 #include "xf_cliprdr.h"
-#include "xf_disp.h"
 #include "xf_input.h"
 #include "xf_gfx.h"
 
@@ -665,17 +664,6 @@ static BOOL xf_event_ConfigureNotify(xfContext* xfc, XEvent* event, BOOL app)
 #endif
 		}
 
-		if (settings->DynamicResolutionUpdate)
-		{
-			int alignedWidth, alignedHeight;
-
-			alignedWidth = (xfc->window->width / 2) * 2;
-			alignedHeight = (xfc->window->height / 2) * 2;
-
-			/* ask the server to resize using the display channel */
-			xf_disp_handle_configureNotify(xfc, alignedWidth, alignedHeight);
-		}
-
 		return TRUE;
 	}
 
@@ -960,7 +948,6 @@ BOOL xf_event_process(freerdp* instance, XEvent* event)
 	BOOL status = TRUE;
 	xfAppWindow* appWindow;
 	xfContext* xfc = (xfContext*) instance->context;
-	rdpSettings *settings = xfc->context.settings;
 
 	if (xfc->remote_app)
 	{
@@ -1060,17 +1047,11 @@ BOOL xf_event_process(freerdp* instance, XEvent* event)
 		case PropertyNotify:
 			status = xf_event_PropertyNotify(xfc, event, xfc->remote_app);
 			break;
-
-		default:
-			if (settings->SupportDisplayControl && xfc->xfDisp)
-				xf_disp_handle_xevent(xfc, event);
-			break;
 	}
 
 	xf_cliprdr_handle_xevent(xfc, event);
 
 	xf_input_handle_event(xfc, event);
-
 	XSync(xfc->display, FALSE);
 	return status;
 }

@@ -425,8 +425,10 @@ BOOL GetCommState(HANDLE hFile, LPDCB lpDCB)
 		lpLocalDcb->fDtrControl = DTR_CONTROL_DISABLE;
 	}
 
-	lpLocalDcb->fDsrSensitivity = (handflow.ControlHandShake & SERIAL_DSR_SENSITIVITY) != 0;
-	lpLocalDcb->fTXContinueOnXoff = (handflow.FlowReplace & SERIAL_XOFF_CONTINUE) != 0;
+	lpLocalDcb->fDsrSensitivity = (handflow.ControlHandShake &
+	                               SERIAL_DSR_SENSITIVITY) != 0;
+	lpLocalDcb->fTXContinueOnXoff = (handflow.FlowReplace & SERIAL_XOFF_CONTINUE) !=
+	                                0;
 	lpLocalDcb->fOutX = (handflow.FlowReplace & SERIAL_AUTO_TRANSMIT) != 0;
 	lpLocalDcb->fInX = (handflow.FlowReplace & SERIAL_AUTO_RECEIVE) != 0;
 	lpLocalDcb->fErrorChar = (handflow.FlowReplace & SERIAL_ERROR_CHAR) != 0;
@@ -1471,7 +1473,10 @@ HANDLE CommCreateFileA(LPCSTR lpDeviceName, DWORD dwDesiredAccess,
 	return (HANDLE)pComm;
 error_handle:
 
-	CloseHandle(pComm);
+	if (pComm != NULL)
+	{
+		CloseHandle(pComm);
+	}
 
 	return INVALID_HANDLE_VALUE;
 }

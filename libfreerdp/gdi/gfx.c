@@ -61,7 +61,8 @@ static UINT gdi_ResetGraphics(RdpgfxClientContext* context,
 	DesktopWidth = resetGraphics->width;
 	DesktopHeight = resetGraphics->height;
 
-	if ((DesktopWidth != settings->DesktopWidth) || (DesktopHeight != settings->DesktopHeight))
+	if ((DesktopWidth != settings->DesktopWidth)
+	    || (DesktopHeight != settings->DesktopHeight))
 	{
 		settings->DesktopWidth = DesktopWidth;
 		settings->DesktopHeight = DesktopHeight;
@@ -578,7 +579,7 @@ static UINT gdi_SurfaceCommand_Alpha(rdpGdi* gdi, RdpgfxClientContext* context,
 
 	WLog_WARN(TAG, "TODO gdi_SurfaceCommand_Alpha: status: %"PRIu32"", status);
 	/* fill with green for now to distinguish from the rest */
-	color = FreeRDPGetColor(surface->format, 0x00, 0xFF, 0x00, 0xFF);
+	color = GetColor(surface->format, 0x00, 0xFF, 0x00, 0xFF);
 
 	if (!freerdp_image_fill(surface->data, surface->format, surface->scanline,
 	                        cmd->left, cmd->top, cmd->width, cmd->height, color))
@@ -689,7 +690,7 @@ static UINT gdi_SurfaceCommand(RdpgfxClientContext* context,
 	           "left=%"PRIu32", top=%"PRIu32", right=%"PRIu32", bottom=%"PRIu32", width=%"PRIu32", height=%"PRIu32" "
 	           "length=%"PRIu32", data=%p, extra=%p",
 	           cmd->surfaceId, cmd->codecId, cmd->contextId,
-	           FreeRDPGetColorFormatName(cmd->format), cmd->left, cmd->top, cmd->right,
+	           GetColorFormatName(cmd->format), cmd->left, cmd->top, cmd->right,
 	           cmd->bottom, cmd->width, cmd->height, cmd->length, (void*) cmd->data, (void*) cmd->extra);
 
 	switch (cmd->codecId)
@@ -867,7 +868,7 @@ static UINT gdi_SolidFill(RdpgfxClientContext* context,
 	/* a = solidFill->fillPixel.XA;
 	 * Ignore alpha channel, this is a solid fill. */
 	a = 0xFF;
-	color = FreeRDPGetColor(surface->format, r, g, b, a);
+	color = GetColor(surface->format, r, g, b, a);
 
 	for (index = 0; index < solidFill->fillRectCount; index++)
 	{
@@ -975,27 +976,28 @@ static UINT gdi_SurfaceToCache(RdpgfxClientContext* context,
 	const RECTANGLE_16* rect;
 	gdiGfxSurface* surface;
 	gdiGfxCacheEntry* cacheEntry;
-
 	rect = &(surfaceToCache->rectSrc);
+	surface = (gdiGfxSurface*) context->GetSurfaceData(context,
+	          surfaceToCache->surfaceId);
 
-	surface = (gdiGfxSurface*) context->GetSurfaceData(context, surfaceToCache->surfaceId);
 	if (!surface)
 		return ERROR_INTERNAL_ERROR;
 
 	cacheEntry = (gdiGfxCacheEntry*) calloc(1, sizeof(gdiGfxCacheEntry));
+
 	if (!cacheEntry)
-		return ERROR_NOT_ENOUGH_MEMORY;
+		return ERROR_INTERNAL_ERROR;
 
 	cacheEntry->width = (UINT32)(rect->right - rect->left);
 	cacheEntry->height = (UINT32)(rect->bottom - rect->top);
 	cacheEntry->format = surface->format;
 	cacheEntry->scanline = gfx_align_scanline(cacheEntry->width * 4, 16);
-
 	cacheEntry->data = (BYTE*) calloc(cacheEntry->height, cacheEntry->scanline);
+
 	if (!cacheEntry->data)
 	{
 		free(cacheEntry);
-		return ERROR_NOT_ENOUGH_MEMORY;
+		return ERROR_INTERNAL_ERROR;
 	}
 
 	if (!freerdp_image_copy(cacheEntry->data, cacheEntry->format, cacheEntry->scanline,
@@ -1006,7 +1008,9 @@ static UINT gdi_SurfaceToCache(RdpgfxClientContext* context,
 		return ERROR_INTERNAL_ERROR;
 	}
 
-	return context->SetCacheSlotData(context, surfaceToCache->cacheSlot, (void*) cacheEntry);
+	context->SetCacheSlotData(context, surfaceToCache->cacheSlot,
+	                          (void*) cacheEntry);
+	return CHANNEL_RC_OK;
 }
 
 /**
@@ -1024,9 +1028,10 @@ static UINT gdi_CacheToSurface(RdpgfxClientContext* context,
 	gdiGfxCacheEntry* cacheEntry;
 	RECTANGLE_16 invalidRect;
 	rdpGdi* gdi = (rdpGdi*) context->custom;
-
-	surface = (gdiGfxSurface*) context->GetSurfaceData(context, cacheToSurface->surfaceId);
-	cacheEntry = (gdiGfxCacheEntry*) context->GetCacheSlotData(context, cacheToSurface->cacheSlot);
+	surface = (gdiGfxSurface*) context->GetSurfaceData(context,
+	          cacheToSurface->surfaceId);
+	cacheEntry = (gdiGfxCacheEntry*) context->GetCacheSlotData(context,
+	             cacheToSurface->cacheSlot);
 
 	if (!surface || !cacheEntry)
 		return ERROR_INTERNAL_ERROR;
@@ -1150,6 +1155,7 @@ void gdi_graphics_pipeline_init(rdpGdi* gdi, RdpgfxClientContext* gfx)
 
 void gdi_graphics_pipeline_uninit(rdpGdi* gdi, RdpgfxClientContext* gfx)
 {
+	region16_uninit(&(gdi->invalidRegion));
 	gdi->gfx = NULL;
 	gfx->custom = NULL;
 	PROFILER_PRINT_HEADER;
