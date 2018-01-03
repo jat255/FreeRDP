@@ -196,39 +196,131 @@ void xf_SetWindowFullscreen(xfContext* xfc, xfWindow* window, BOOL fullscreen)
 
 	if (xfc->_NET_WM_FULLSCREEN_MONITORS != None)
 	{
-		printf("_NET_WM_FULLSCREEN_MONITORS is not None\n");
+		// printf("_NET_WM_FULLSCREEN_MONITORS is not None\n");
 
-		/* Set monitor bounds */
-		if (settings->MonitorCount > 1)
-		{
-			printf("MonitorCount > 1\n");
-			xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_FULLSCREEN_MONITORS, 5,
-			                   xfc->fullscreenMonitors.top,
-			                   xfc->fullscreenMonitors.bottom,
-			                   xfc->fullscreenMonitors.left,
-			                   xfc->fullscreenMonitors.right,
-			                   1);
-		}
+		// /* Set monitor bounds */
+		// if (settings->MonitorCount > 1)
+		// {
+		// 	printf("MonitorCount > 1\n");
+		// 	xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_FULLSCREEN_MONITORS, 5,
+		// 	                   xfc->fullscreenMonitors.top,
+		// 	                   xfc->fullscreenMonitors.bottom,
+		// 	                   xfc->fullscreenMonitors.left,
+		// 	                   xfc->fullscreenMonitors.right,
+		// 	                   1);
+		// }
 
-		xf_ResizeDesktopWindow(xfc, window, width, height);
+		// xf_ResizeDesktopWindow(xfc, window, width, height);
 
+		// if (fullscreen)
+		// {
+		// 	printf("We are fullscreen\n");
+		// 	/* enter full screen: move the window before adding NET_WM_STATE_FULLSCREEN */
+		// 	XMoveWindow(xfc->display, window->handle, startX, startY);
+		// }
+
+		// /* Set the fullscreen state */
+		// xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+		//                    fullscreen ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE,
+		//                    xfc->_NET_WM_STATE_FULLSCREEN, 0, 0);
+
+		// if (!fullscreen)
+		// {
+		// 	printf("We are not fullscreen\n")
+		// 	/* leave full screen: move the window after removing NET_WM_STATE_FULLSCREEN */
+		// 	XMoveWindow(xfc->display, window->handle, startX, startY);
+		// }
+		printf('Running the \"is None\" code');
 		if (fullscreen)
 		{
-			printf("We are fullscreen\n");
-			/* enter full screen: move the window before adding NET_WM_STATE_FULLSCREEN */
+			xf_SetWindowDecorations(xfc, window->handle, FALSE);
+
+			if (xfc->fullscreenMonitors.top)
+			{
+				xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+				                   _NET_WM_STATE_ADD,
+				                   xfc->fullscreenMonitors.top, 0, 0);
+			}
+			else
+			{
+				XSetWindowAttributes xswa;
+				xswa.override_redirect = True;
+				XChangeWindowAttributes(xfc->display, window->handle, CWOverrideRedirect, &xswa);
+				XRaiseWindow(xfc->display, window->handle);
+				xswa.override_redirect = False;
+				XChangeWindowAttributes(xfc->display, window->handle, CWOverrideRedirect, &xswa);
+			}
+
+			/* if window is in maximized state, save and remove */
+			if (xfc->_NET_WM_STATE_MAXIMIZED_VERT != None)
+			{
+				BYTE state;
+				unsigned long nitems;
+				unsigned long bytes;
+				BYTE* prop;
+
+				if (xf_GetWindowProperty(xfc, window->handle, xfc->_NET_WM_STATE, 255, &nitems, &bytes, &prop))
+				{
+					state = 0;
+
+					while (nitems-- > 0)
+					{
+						if (((Atom*) prop)[nitems] == xfc->_NET_WM_STATE_MAXIMIZED_VERT)
+							state |= 0x01;
+
+						if (((Atom*) prop)[nitems] == xfc->_NET_WM_STATE_MAXIMIZED_HORZ)
+							state |= 0x02;
+					}
+
+					if (state)
+					{
+						xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+						                   _NET_WM_STATE_REMOVE, xfc->_NET_WM_STATE_MAXIMIZED_VERT,
+						                   0, 0);
+						xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+						                   _NET_WM_STATE_REMOVE, xfc->_NET_WM_STATE_MAXIMIZED_HORZ,
+						                   0, 0);
+						xfc->savedMaximizedState = state;
+					}
+
+					XFree(prop);
+				}
+			}
+
+			width = xfc->vscreen.area.right - xfc->vscreen.area.left + 1;
+			height = xfc->vscreen.area.bottom - xfc->vscreen.area.top + 1;
+			xf_ResizeDesktopWindow(xfc, window, width, height);
 			XMoveWindow(xfc->display, window->handle, startX, startY);
 		}
-
-		/* Set the fullscreen state */
-		xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
-		                   fullscreen ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE,
-		                   xfc->_NET_WM_STATE_FULLSCREEN, 0, 0);
-
-		if (!fullscreen)
+		else
 		{
-			printf("We are not fullscreen\n");
-			/* leave full screen: move the window after removing NET_WM_STATE_FULLSCREEN */
+			xf_SetWindowDecorations(xfc, window->handle, window->decorations);
+			xf_ResizeDesktopWindow(xfc, window, width, height);
 			XMoveWindow(xfc->display, window->handle, startX, startY);
+
+			if (xfc->fullscreenMonitors.top)
+			{
+				xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+				                   _NET_WM_STATE_REMOVE,
+				                   xfc->fullscreenMonitors.top, 0, 0);
+			}
+
+			/* restore maximized state, if the window was maximized before setting fullscreen */
+			if (xfc->savedMaximizedState & 0x01)
+			{
+				xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+				                   _NET_WM_STATE_ADD, xfc->_NET_WM_STATE_MAXIMIZED_VERT,
+				                   0, 0);
+			}
+
+			if (xfc->savedMaximizedState & 0x02)
+			{
+				xf_SendClientEvent(xfc, window->handle, xfc->_NET_WM_STATE, 4,
+				                   _NET_WM_STATE_ADD, xfc->_NET_WM_STATE_MAXIMIZED_HORZ,
+				                   0, 0);
+			}
+
+			xfc->savedMaximizedState = 0;
 		}
 	}
 	else
